@@ -76,7 +76,7 @@ export default function RelatorioPDF() {
 
         {carregando ? (
           <p className="text-center text-gray-500 py-8">A carregar dados do relatório...</p>
-        ​) : falhas.length === 0 ? (
+        ) : falhas.length === 0 ? (
           <p className="text-center text-gray-500 py-8">Nenhuma ocorrência aprovada registada.</p>
         ) : (
           <div className="space-y-6">
