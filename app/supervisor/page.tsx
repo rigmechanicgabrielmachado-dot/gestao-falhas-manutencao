@@ -85,7 +85,7 @@ export default function PainelSupervisor() {
     // Pede a senha de supervisor de 6 dígitos antes de rejeitar/apagar
     const senhaSupervisor = prompt("Digite a senha de supervisor (6 dígitos) para autorizar a exclusão:");
 
-    if (senhaSupervisor !== "123456") { // Substitua '123456' pela senha desejada
+    if (senhaSupervisor !== "218028") { // Substitua '123456' pela senha desejada
       alert("Senha de supervisor incorreta. Ação cancelada.");
       return;
     }
