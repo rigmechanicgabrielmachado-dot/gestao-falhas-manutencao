@@ -32,7 +32,6 @@ export default function PainelSupervisor() {
   useEffect(() => {
     async function verificarSessao() {
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session) {
         // Se não estiver logado, redireciona para a nova tela de login
         router.push('/login');
@@ -61,6 +60,14 @@ export default function PainelSupervisor() {
   };
 
   const aprovarFalha = async (id: string | number) => {
+    // Pede a senha de supervisor de 6 dígitos antes de aprovar
+    const senhaSupervisor = prompt("Digite a senha de supervisor (6 dígitos) para autorizar a aprovação:");
+
+    if (senhaSupervisor !== "123456") { // Substitua '123456' pela senha desejada
+      alert("Senha de supervisor incorreta. Ação cancelada.");
+      return;
+    }
+
     const { error } = await supabase
       .from('falhas')
       .update({ aprovado: true })
@@ -75,6 +82,14 @@ export default function PainelSupervisor() {
   };
 
   const rejeitarFalha = async (id: string | number) => {
+    // Pede a senha de supervisor de 6 dígitos antes de rejeitar/apagar
+    const senhaSupervisor = prompt("Digite a senha de supervisor (6 dígitos) para autorizar a exclusão:");
+
+    if (senhaSupervisor !== "123456") { // Substitua '123456' pela senha desejada
+      alert("Senha de supervisor incorreta. Ação cancelada.");
+      return;
+    }
+
     if (!confirm('Tem certeza que deseja rejeitar e apagar esta ocorrência?')) return;
 
     const { error } = await supabase

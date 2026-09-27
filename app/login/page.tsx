@@ -12,6 +12,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // Estado para controlar a visibilidade da senha
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
   const router = useRouter();
@@ -37,6 +38,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md space-y-6">
+        
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-800">Manutenção Industrial</h1>
           <p className="text-sm text-gray-500 mt-1">Faça login para continuar</p>
@@ -59,14 +61,23 @@ export default function LoginPage() {
 
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Palavra-passe</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 text-black bg-white"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 text-black bg-white pr-16"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-500 hover:text-gray-700 focus:outline-none cursor-pointer"
+              >
+                {showPassword ? 'Ocultar' : 'Ver'}
+              </button>
+            </div>
           </div>
 
           <button
@@ -85,6 +96,7 @@ export default function LoginPage() {
             Registe-se aqui
           </Link>
         </div>
+
       </div>
     </main>
   );
