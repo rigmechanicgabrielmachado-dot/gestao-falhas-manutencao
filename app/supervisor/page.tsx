@@ -27,10 +27,8 @@ interface Falha {
 
 export default function PainelSupervisor() {
   const router = useRouter();
-  
   const [autenticado, setAutenticado] = useState(false);
   const [senhaDigitada, setSenhaDigitada] = useState('');
-  
   const [pendentes, setPendentes] = useState<Falha[]>([]);
   const [carregando, setCarregando] = useState(true);
 
@@ -145,19 +143,28 @@ export default function PainelSupervisor() {
               Ocorrências aguardando aprovação para publicação
             </p>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setAutenticado(false)}
-              className="bg-red-900/60 hover:bg-red-900 text-red-200 px-3 py-2 rounded-lg text-sm transition cursor-pointer"
+
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/supervisor/relatorio"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 cursor-pointer"
             >
-              Sair
-            </button>
+              📄 Exportar Relatório PDF
+            </Link>
+
             <Link
               href="/"
               className="bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold px-4 py-2 rounded-lg text-sm transition flex items-center"
             >
               Início
             </Link>
+
+            <button
+              onClick={() => setAutenticado(false)}
+              className="bg-red-900/60 hover:bg-red-900 text-red-200 px-3 py-2 rounded-lg text-sm transition cursor-pointer"
+            >
+              Sair
+            </button>
           </div>
         </div>
 
