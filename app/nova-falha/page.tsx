@@ -109,6 +109,7 @@ export default function NovaFalha() {
               <option value="Cesta de manutenção">Cesta de manutenção</option>
               <option value="Compressor de Alta Pressão">Compressor de Alta Pressão</option>
               <option value="Drawworks">Drawworks</option>
+              <option value="Fingerboard">Fingerboard</option>
               <option value="Guindaste 100 ton">Guindaste 100 ton</option>
               <option value="Guindaste AHC">Guindaste AHC</option>
               <option value="HPU">HPU</option>
@@ -116,7 +117,9 @@ export default function NovaFalha() {
               <option value="Manrider">Manrider</option>
               <option value="Mesa Rotativa">Mesa Rotativa</option>
               <option value="MPT270">MPT270</option>
+              <option value="Pipe Catwalk">Pipe Catwalk</option>
               <option value="PS30">PS30</option>
+              <option value="Riser Catwalk">Riser Catwalk</option>
               <option value="Riser Gantry Crane">Riser Gantry Crane</option>
               <option value="Top Drive">Top Drive</option>
               <option value="X-Mas Tree Skid">X-Mas Tree Skid</option>
