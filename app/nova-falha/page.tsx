@@ -30,7 +30,6 @@ export default function NovaFalha() {
     // 1. SE HOUVER FOTO, FAZ O UPLOAD PARA O SUPABASE STORAGE
     if (arquivoFoto) {
       const nomeArquivo = `${Date.now()}-${arquivoFoto.name.replace(/\s+/g, '_')}`;
-      
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('fotos-falhas')
         .upload(nomeArquivo, arquivoFoto);
@@ -74,7 +73,6 @@ export default function NovaFalha() {
   return (
     <main className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
       <div className="max-w-2xl mx-auto space-y-6">
-        
         {/* CABEÇALHO */}
         <div className="flex justify-between items-center bg-gray-800 p-6 rounded-lg border border-gray-700">
           <div>
@@ -92,19 +90,40 @@ export default function NovaFalha() {
         {/* FORMULÁRIO */}
         <form onSubmit={handleSubmit} className="bg-gray-800 p-6 rounded-lg border border-gray-700 space-y-4">
           
-          <div>
+          {/* CAMPO DE EQUIPAMENTO ALTERADO PARA SELECT */}
+          <div className="space-y-2">
             <label className="block text-xs uppercase text-gray-400 font-semibold mb-1">
               Equipamento *
             </label>
-            <input
-              type="text"
+            <select
               required
               value={equipamento}
               onChange={(e) => setEquipamento(e.target.value)}
-              placeholder="Ex: Bomba de Lama 01, Top Drive, Chave Hidráulica..."
-              className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500"
-            />
+              className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer"
+            >
+              <option value="" disabled>Selecione o equipamento da lista...</option>
+              <option value="ARN 270">ARN 270</option>
+              <option value="Bomba de Lama">Bomba de Lama</option>
+              <option value="BX Elevator">BX Elevator</option>
+              <option value="Catline">Catline</option>
+              <option value="Cesta de manutenção">Cesta de manutenção</option>
+              <option value="Compressor de Alta Pressão">Compressor de Alta Pressão</option>
+              <option value="Drawworks">Drawworks</option>
+              <option value="Guindaste 100 ton">Guindaste 100 ton</option>
+              <option value="Guindaste AHC">Guindaste AHC</option>
+              <option value="HPU">HPU</option>
+              <option value="Hydraracker">Hydraracker</option>
+              <option value="Manrider">Manrider</option>
+              <option value="Mesa Rotativa">Mesa Rotativa</option>
+              <option value="MPT270">MPT270</option>
+              <option value="PS30">PS30</option>
+              <option value="Riser Gantry Crane">Riser Gantry Crane</option>
+              <option value="Top Drive">Top Drive</option>
+              <option value="X-Mas Tree Skid">X-Mas Tree Skid</option>
+              <option value="X-Mas Tree Troley">X-Mas Tree Troley</option>
+            </select>
           </div>
+
 
           <div>
             <label className="block text-xs uppercase text-red-400 font-semibold mb-1">
@@ -127,7 +146,7 @@ export default function NovaFalha() {
             <textarea
               rows={2}
               value={causaRaiz}
-              onChange={(e) => CausaRaiz(e.target.value)}
+              onChange={(e) => setCausaRaiz(e.target.value)}
               placeholder="Qual foi a causa identificada após a análise..."
               className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500"
             />
@@ -190,7 +209,6 @@ export default function NovaFalha() {
           </button>
 
         </form>
-
       </div>
     </main>
   );
