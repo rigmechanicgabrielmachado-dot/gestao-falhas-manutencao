@@ -28,19 +28,31 @@ export default function PainelSupervisor() {
   const [pendentes, setPendentes] = useState<Falha[]>([]);
   const [carregando, setCarregando] = useState(true);
 
-  // Verifica se o usuário está autenticado via Supabase ao carregar a página
+  // Verifica a sessão do Supabase E pede a senha de supervisor logo na entrada
   useEffect(() => {
-    async function verificarSessao() {
+    async function verificarAcessoSupervisor() {
       const { data: { session } } = await supabase.auth.getSession();
+      
       if (!session) {
-        // Se não estiver logado, redireciona para a nova tela de login
         router.push('/login');
-      } else {
-        setVerificando(false);
-        carregarPendentes();
+        return;
       }
+
+      // Pede a senha de 6 dígitos antes de deixar ver a página
+      const senhaSupervisor = prompt("Digite a senha de supervisor (6 dígitos) para aceder ao painel:");
+
+      // Substitua '123456' pela senha de supervisor desejada
+      if (senhaSupervisor !== "123456") {
+        alert("Senha incorreta. Acesso negado.");
+        router.push('/'); // Manda o utilizador de volta para o início
+        return;
+      }
+
+      setVerificando(false);
+      carregarPendentes();
     }
-    verificarSessao();
+
+    verificarAcessoSupervisor();
   }, [router]);
 
   const carregarPendentes = async () => {
@@ -60,14 +72,6 @@ export default function PainelSupervisor() {
   };
 
   const aprovarFalha = async (id: string | number) => {
-    // Pede a senha de supervisor de 6 dígitos antes de aprovar
-    const senhaSupervisor = prompt("Digite a senha de supervisor (6 dígitos) para autorizar a aprovação:");
-
-    if (senhaSupervisor !== "123456") { // Substitua '123456' pela senha desejada
-      alert("Senha de supervisor incorreta. Ação cancelada.");
-      return;
-    }
-
     const { error } = await supabase
       .from('falhas')
       .update({ aprovado: true })
@@ -82,14 +86,6 @@ export default function PainelSupervisor() {
   };
 
   const rejeitarFalha = async (id: string | number) => {
-    // Pede a senha de supervisor de 6 dígitos antes de rejeitar/apagar
-    const senhaSupervisor = prompt("Digite a senha de supervisor (6 dígitos) para autorizar a exclusão:");
-
-    if (senhaSupervisor !== "218028") { // Substitua '123456' pela senha desejada
-      alert("Senha de supervisor incorreta. Ação cancelada.");
-      return;
-    }
-
     if (!confirm('Tem certeza que deseja rejeitar e apagar esta ocorrência?')) return;
 
     const { error } = await supabase
@@ -110,7 +106,6 @@ export default function PainelSupervisor() {
     router.push('/login');
   };
 
-  // Enquanto valida a sessão, mostra um ecrã de carregamento
   if (verificando) {
     return (
       <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
@@ -119,7 +114,6 @@ export default function PainelSupervisor() {
     );
   }
 
-  // PAINEL DE MODERAÇÃO (APÓS ESTAR AUTENTICADO VIA SUPABASE)
   return (
     <main className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
       <div className="max-w-4xl mx-auto space-y-6">

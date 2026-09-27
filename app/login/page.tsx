@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
@@ -12,10 +12,18 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // Estado para controlar a visibilidade da senha
+  const [showPassword, setShowPassword] = useState(false);
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
   const router = useRouter();
+
+  // Assim que a página abre, verifica se existe um e-mail guardado no navegador
+  useEffect(() => {
+    const emailSalvo = localStorage.getItem('ultimo_email');
+    if (emailSalvo) {
+      setEmail(emailSalvo);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +39,8 @@ export default function LoginPage() {
       setErro('Erro ao entrar: ' + error.message);
       setCarregando(false);
     } else {
+      // Guarda o e-mail no navegador para as próximas vezes
+      localStorage.setItem('ultimo_email', email);
       router.push('/'); 
     }
   };
