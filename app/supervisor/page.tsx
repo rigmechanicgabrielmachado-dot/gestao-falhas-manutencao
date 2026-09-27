@@ -10,9 +10,6 @@ const supabaseAnonKey = 'sb_publishable_Z6Bwn2w0rOE_nuGZrjDTKA_Bev3tqCI';
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// DEFINA A SENHA DO SUPERVISOR AQUI:
-const SENHA_SUPERVISOR = '218028'; 
-
 interface Falha {
   id: string | number;
   equipamento: string;
@@ -27,21 +24,25 @@ interface Falha {
 
 export default function PainelSupervisor() {
   const router = useRouter();
-  const [autenticado, setAutenticado] = useState(false);
-  const [senhaDigitada, setSenhaDigitada] = useState('');
+  const [verificando, setVerificando] = useState(true);
   const [pendentes, setPendentes] = useState<Falha[]>([]);
   const [carregando, setCarregando] = useState(true);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (senhaDigitada === SENHA_SUPERVISOR) {
-      setAutenticado(true);
-      carregarPendentes();
-    } else {
-      alert('Senha incorreta!');
-      setSenhaDigitada('');
+  // Verifica se o usuário está autenticado via Supabase ao carregar a página
+  useEffect(() => {
+    async function verificarSessao() {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // Se não estiver logado, redireciona para a nova tela de login
+        router.push('/login');
+      } else {
+        setVerificando(false);
+        carregarPendentes();
+      }
     }
-  };
+    verificarSessao();
+  }, [router]);
 
   const carregarPendentes = async () => {
     setCarregando(true);
@@ -89,47 +90,21 @@ export default function PainelSupervisor() {
     }
   };
 
-  // TELA DE LOGIN SE NÃO ESTIVER AUTENTICADO
-  if (!autenticado) {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
+
+  // Enquanto valida a sessão, mostra um ecrã de carregamento
+  if (verificando) {
     return (
       <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
-        <div className="bg-gray-800 p-8 rounded-lg shadow-xl border border-gray-700 max-w-md w-full space-y-6">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-yellow-400">Área Restrita</h1>
-            <p className="text-gray-400 text-sm mt-1">Insira a senha do supervisor para continuar</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <input
-                type="password"
-                required
-                value={senhaDigitada}
-                onChange={(e) => setSenhaDigitada(e.target.value)}
-                placeholder="Senha de acesso..."
-                className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-yellow-500"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-3 rounded-lg transition cursor-pointer"
-            >
-              Entrar no Painel
-            </button>
-          </form>
-
-          <div className="text-center pt-2">
-            <Link href="/" className="text-sm text-gray-400 hover:text-white transition">
-              ← Voltar para a página inicial
-            </Link>
-          </div>
-        </div>
+        <div className="text-center text-yellow-400">A verificar credenciais de acesso...</div>
       </main>
     );
   }
 
-  // PAINEL DE MODERAÇÃO (APÓS COLOCAR A SENHA CORRETA)
+  // PAINEL DE MODERAÇÃO (APÓS ESTAR AUTENTICADO VIA SUPABASE)
   return (
     <main className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -160,7 +135,7 @@ export default function PainelSupervisor() {
             </Link>
 
             <button
-              onClick={() => setAutenticado(false)}
+              onClick={handleLogout}
               className="bg-red-900/60 hover:bg-red-900 text-red-200 px-3 py-2 rounded-lg text-sm transition cursor-pointer"
             >
               Sair
