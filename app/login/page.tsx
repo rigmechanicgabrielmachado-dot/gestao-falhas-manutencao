@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://tkbqnssxdfmdrqiastrj.supabase.co';
@@ -29,8 +30,7 @@ export default function LoginPage() {
       setErro('Erro ao entrar: ' + error.message);
       setCarregando(false);
     } else {
-      // Redireciona para o painel principal após o login bem-sucedido
-      router.push('/supervisor'); 
+      router.push('/'); 
     }
   };
 
@@ -52,7 +52,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 text-black bg-white"
               placeholder="seu.email@empresa.com"
             />
           </div>
@@ -64,7 +64,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 text-black bg-white"
               placeholder="••••••••"
             />
           </div>
@@ -77,8 +77,15 @@ export default function LoginPage() {
             {carregando ? 'A entrar...' : 'Entrar'}
           </button>
         </form>
+
+        {/* Botão / Link para ir para a página de cadastro */}
+        <div className="text-center pt-2 border-t border-gray-100 text-sm">
+          <span className="text-gray-500">Não tem uma conta? </span>
+          <Link href="/cadastro" className="text-blue-600 font-semibold hover:underline">
+            Registe-se aqui
+          </Link>
+        </div>
       </div>
     </main>
   );
 }
-    

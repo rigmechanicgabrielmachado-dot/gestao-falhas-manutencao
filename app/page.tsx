@@ -25,32 +25,45 @@ interface Falha {
 export default function Home() {
   const router = useRouter();
 
+  const [verificando, setVerificando] = useState(true);
   const [falhas, setFalhas] = useState<Falha[]>([]);
   const [busca, setBusca] = useState('');
   const [equipamentoAberto, setEquipamentoAberto] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
 
+  // Verifica a autenticação do usuário antes de carregar a página
   useEffect(() => {
-    async function carregarFalhas() {
-      setCarregando(true);
-
-      const { data, error } = await supabase
-        .from('falhas')
-        .select('*')
-        .eq('aprovado', true)
-        .order('criado_em', { ascending: false });
-
-      if (error) {
-        console.error('Erro ao buscar falhas:', error);
+    async function verificarSessao() {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // Se não houver sessão ativa, redireciona para o login
+        router.push('/login');
       } else {
-        setFalhas(data || []);
+        setVerificando(false);
+        carregarFalhas();
       }
+    }
+    verificarSessao();
+  }, [router]);
 
-      setCarregando(false);
+  async function carregarFalhas() {
+    setCarregando(true);
+
+    const { data, error } = await supabase
+      .from('falhas')
+      .select('*')
+      .eq('aprovado', true)
+      .order('criado_em', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao buscar falhas:', error);
+    } else {
+      setFalhas(data || []);
     }
 
-    carregarFalhas();
-  }, []);
+    setCarregando(false);
+  }
 
   const termo = busca.toLowerCase().trim();
 
@@ -84,6 +97,15 @@ export default function Home() {
   const equipamentos = Object.entries(falhasPorEquipamento).sort(
     ([a], [b]) => a.localeCompare(b, 'pt-BR')
   );
+
+  // Mostra um aviso enquanto valida se o usuário está logado
+  if (verificando) {
+    return (
+      <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
+        <div className="text-center text-blue-400">A verificar autenticação...</div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
