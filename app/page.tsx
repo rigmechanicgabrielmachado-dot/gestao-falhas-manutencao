@@ -94,7 +94,7 @@ export default function Home() {
             </h1>
 
             <p className="text-gray-400 text-sm mt-1">
-              Drilling - Manutenção Industrial
+              Equipamentos de Drilling - Manutenção Industrial
             </p>
           </div>
 
