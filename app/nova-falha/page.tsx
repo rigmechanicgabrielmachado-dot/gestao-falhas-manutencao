@@ -167,6 +167,7 @@ export default function NovaFalha() {
               <option value="Mesa Rotativa">Mesa Rotativa</option>
               <option value="Pipe Catwalk">Pipe Catwalk</option>
               <option value="PS30">PS30</option>
+              <option value="PS495">PS495</option>
               <option value="Riser Catwalk">Riser Catwalk</option>
               <option value="Riser Gantry Crane">Riser Gantry Crane</option>
               <option value="Top Drive">Top Drive</option>
