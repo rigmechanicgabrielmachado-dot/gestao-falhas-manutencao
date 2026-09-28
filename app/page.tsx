@@ -28,6 +28,7 @@ export default function Home() {
   const [verificando, setVerificando] = useState(true);
   const [falhas, setFalhas] = useState<Falha[]>([]);
   const [busca, setBusca] = useState('');
+  const [filtroEquipamento, setFiltroEquipamento] = useState(''); // Novo estado para o filtro de equipamento
   const [equipamentoAberto, setEquipamentoAberto] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
 
@@ -35,7 +36,6 @@ export default function Home() {
   useEffect(() => {
     async function verificarSessao() {
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session) {
         // Se não houver sessão ativa, redireciona para o login
         router.push('/login');
@@ -67,7 +67,14 @@ export default function Home() {
 
   const termo = busca.toLowerCase().trim();
 
+  // Filtragem combinada por Palavra-chave (Sintoma, Solução, Causa Raiz, Part Number) e por Equipamento selecionado
   const falhasFiltradas = falhas.filter((item) => {
+    // Validação do filtro de equipamento do dropdown
+    if (filtroEquipamento && item.equipamento !== filtroEquipamento) {
+      return false;
+    }
+
+    // Validação do texto de busca livre
     if (!termo) return true;
 
     return (
@@ -132,15 +139,71 @@ export default function Home() {
           </button>
         </div>
 
-        {/* PESQUISA */}
-        <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
-          <input
-            type="text"
-            placeholder="Pesquisar equipamento, falha, sintoma, causa, solução ou part number..."
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            className="w-full p-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500 placeholder-gray-400"
-          />
+        {/* BARRA DE PESQUISA E FILTROS */}
+        <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700 space-y-3">
+          <div className="flex flex-col md:flex-row gap-3">
+            
+            {/* PESQUISA POR PALAVRA-CHAVE */}
+            <div className="flex-1 relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                🔍
+              </span>
+              <input
+                type="text"
+                placeholder="Pesquisar sintoma, causa, solução ou part number..."
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-700 text-white pl-10 pr-10 py-3 rounded-lg text-sm focus:outline-none focus:border-blue-500 placeholder-gray-400"
+              />
+              {busca && (
+                <button
+                  onClick={() => setBusca('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-gray-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* SELETOR DE EQUIPAMENTO */}
+            <div className="w-full md:w-72">
+              <select
+                value={filtroEquipamento}
+                onChange={(e) => setFiltroEquipamento(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-700 text-white p-3 rounded-lg text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
+              >
+                <option value="">Todos os Equipamentos</option>
+                <option value="ARN 270">ARN 270</option>
+                <option value="Bomba de Lama">Bomba de Lama</option>
+                <option value="BX Elevator">BX Elevator</option>
+                <option value="Catline">Catline</option>
+                <option value="Cesta de manutenção">Cesta de manutenção</option>
+                <option value="Compressor de Alta Pressão">Compressor de Alta Pressão</option>
+                <option value="Drawworks">Drawworks</option>
+                <option value="Fingerboard">Fingerboard</option>
+                <option value="Guindaste 100 ton">Guindaste 100 ton</option>
+                <option value="Guindaste AHC">Guindaste AHC</option>
+                <option value="HPU">HPU</option>
+                <option value="Hydraracker">Hydraracker</option>
+                <option value="Manrider">Manrider</option>
+                <option value="Mesa Rotativa">Mesa Rotativa</option>
+                <option value="MPT270">MPT270</option>
+                <option value="Pipe Catwalk">Pipe Catwalk</option>
+                <option value="PS30">PS30</option>
+                <option value="Riser Catwalk">Riser Catwalk</option>
+                <option value="Riser Gantry Crane">Riser Gantry Crane</option>
+                <option value="Top Drive">Top Drive</option>
+                <option value="X-Mas Tree Skid">X-Mas Tree Skid</option>
+                <option value="X-Mas Tree Troley">X-Mas Tree Troley</option>
+              </select>
+            </div>
+
+          </div>
+
+          <div className="flex justify-between items-center text-xs text-gray-400 px-1 pt-1">
+            <span>💡 Dica: Consulte aqui antes de registrar para verificar se o problema já foi solucionado.</span>
+            <span>{falhasFiltradas.length} ocorrência(s) encontrada(s)</span>
+          </div>
         </div>
 
         {/* CARREGANDO */}
@@ -153,8 +216,8 @@ export default function Home() {
         {/* SEM RESULTADOS */}
         {!carregando && equipamentos.length === 0 && (
           <div className="bg-gray-800 p-8 rounded-lg text-center text-gray-400 border border-gray-700">
-            {busca
-              ? 'Nenhuma ocorrência aprovada encontrada para essa pesquisa.'
+            {busca || filtroEquipamento
+              ? 'Nenhuma ocorrência aprovada encontrada com estes filtros de pesquisa.'
               : 'Nenhuma ocorrência aprovada registrada no momento.'}
 
             <div className="mt-4">
@@ -271,6 +334,7 @@ export default function Home() {
                       ))}
                     </div>
                   )}
+
                 </div>
               );
             })}

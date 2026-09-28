@@ -20,6 +20,7 @@ export default function NovaFalha() {
   const [partNumber, setPartNumber] = useState('');
   const [arquivoFoto, setArquivoFoto] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [sucesso, setSucesso] = useState(false); // <--- Estado para controlar o ecrã de sucesso
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +28,11 @@ export default function NovaFalha() {
 
     let fotoUrlFinal = '';
 
-    // 1. SE HOUVER FOTO, FAZ O UPLOAD PARA O SUPABASE STORAGE
+    // 1. CAPTURAR O E-MAIL DO UTILIZADOR AUTENTICADO NO MOMENTO DO ENVIO
+    const { data: { session } } = await supabase.auth.getSession();
+    const emailUsuario = session?.user?.email || 'Anónimo';
+
+    // 2. SE HOUVER FOTO, FAZ O UPLOAD PARA O SUPABASE STORAGE
     if (arquivoFoto) {
       const nomeArquivo = `${Date.now()}-${arquivoFoto.name.replace(/\s+/g, '_')}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -40,7 +45,7 @@ export default function NovaFalha() {
         return;
       }
 
-      // 2. OBTER A URL PÚBLICA DA IMAGEM
+      // 3. OBTER A URL PÚBLICA DA IMAGEM
       const { data: publicUrlData } = supabase.storage
         .from('fotos-falhas')
         .getPublicUrl(nomeArquivo);
@@ -48,7 +53,7 @@ export default function NovaFalha() {
       fotoUrlFinal = publicUrlData.publicUrl;
     }
 
-    // 3. SALVAR A OCORRÊNCIA NO BANCO DE DADOS (APROVADO = FALSE)
+    // 4. SALVAR A OCORRÊNCIA NO BANCO DE DADOS
     const { error } = await supabase.from('falhas').insert([
       {
         equipamento: equipamento.trim(),
@@ -57,6 +62,7 @@ export default function NovaFalha() {
         solucao: solucao.trim(),
         part_number: partNumber.trim() || null,
         foto_url: fotoUrlFinal || null,
+        criado_por: emailUsuario,
         aprovado: false, // Vai para moderação do supervisor
       },
     ]);
@@ -65,10 +71,54 @@ export default function NovaFalha() {
       alert('Erro ao registar ocorrência: ' + error.message);
       setEnviando(false);
     } else {
-      alert('Ocorrência registada com sucesso! Aguardando aprovação do supervisor.');
-      router.push('/');
+      setEnviando(false);
+      setSucesso(true); // <--- Ativa o ecrã bonito de sucesso em vez de usar alert()
     }
   };
+
+  // SE O ENVIO FOI CONCLUÍDO COM SSUCESSO, EXIBE ESTE CARD ELEGANTE
+  if (sucesso) {
+    return (
+      <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
+        <div className="bg-gray-800 border border-gray-700 p-8 rounded-2xl shadow-2xl w-full max-w-md text-center space-y-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/10 text-green-400 mb-2 border border-green-500/20 text-2xl animate-bounce">
+            ✅
+          </div>
+          
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-green-400">Ocorrência Registada!</h1>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              O seu registo foi enviado com sucesso e encontra-se a aguardar a aprovação do supervisor para ser publicado.
+            </p>
+          </div>
+
+          <div className="pt-4 flex flex-col gap-3">
+            <button
+              onClick={() => {
+                setSucesso(false);
+                setEquipamento('');
+                setSintoma('');
+                setCausaRaiz('');
+                setSolucao('');
+                setPartNumber('');
+                setArquivoFoto(null);
+              }}
+              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 rounded-lg text-sm transition cursor-pointer"
+            >
+              Registar Outra Ocorrência
+            </button>
+
+            <Link
+              href="/"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg text-sm transition text-center"
+            >
+              Voltar ao Início
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
@@ -90,7 +140,6 @@ export default function NovaFalha() {
         {/* FORMULÁRIO */}
         <form onSubmit={handleSubmit} className="bg-gray-800 p-6 rounded-lg border border-gray-700 space-y-4">
           
-          {/* CAMPO DE EQUIPAMENTO ALTERADO PARA SELECT */}
           <div className="space-y-2">
             <label className="block text-xs uppercase text-gray-400 font-semibold mb-1">
               Equipamento *
@@ -102,7 +151,6 @@ export default function NovaFalha() {
               className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="" disabled>Selecione o equipamento da lista...</option>
-              <option value="ARN 270">ARN 270</option>
               <option value="Bomba de Lama">Bomba de Lama</option>
               <option value="BX Elevator">BX Elevator</option>
               <option value="Catline">Catline</option>
@@ -113,10 +161,10 @@ export default function NovaFalha() {
               <option value="Guindaste 100 ton">Guindaste 100 ton</option>
               <option value="Guindaste AHC">Guindaste AHC</option>
               <option value="HPU">HPU</option>
+              <option value="Hydratong">Hydratong</option>
               <option value="Hydraracker">Hydraracker</option>
               <option value="Manrider">Manrider</option>
               <option value="Mesa Rotativa">Mesa Rotativa</option>
-              <option value="MPT270">MPT270</option>
               <option value="Pipe Catwalk">Pipe Catwalk</option>
               <option value="PS30">PS30</option>
               <option value="Riser Catwalk">Riser Catwalk</option>
@@ -126,7 +174,6 @@ export default function NovaFalha() {
               <option value="X-Mas Tree Troley">X-Mas Tree Troley</option>
             </select>
           </div>
-
 
           <div>
             <label className="block text-xs uppercase text-red-400 font-semibold mb-1">
@@ -182,7 +229,6 @@ export default function NovaFalha() {
             />
           </div>
 
-          {/* CAMPO DE FOTO COM SUPORTE A CÂMARA DO TELEMÓVEL */}
           <div>
             <label className="block text-xs uppercase text-blue-300 font-semibold mb-1">
               Foto da Falha ou Peça (Opcional)

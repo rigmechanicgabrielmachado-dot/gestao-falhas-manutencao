@@ -18,7 +18,7 @@ interface Falha {
   solucao: string;
   part_number?: string;
   criado_em: string;
-  criado_por?: string; // <--- Adicionado para suportar o rastreio de autoria
+  criado_por?: string;
   foto_url?: string;
   aprovado: boolean;
 }
@@ -32,7 +32,23 @@ export default function PainelSupervisor() {
   const [pendentes, setPendentes] = useState<Falha[]>([]);
   const [carregando, setCarregando] = useState(true);
 
-  // Verifica se o utilizador está logado no Supabase ao carregar
+  // Estados para controlar qual card está em modo de edição
+  const [editandoId, setEditandoId] = useState<string | number | null>(null);
+  const [editEquipamento, setEditEquipamento] = useState('');
+  const [editSintoma, setEditSintoma] = useState('');
+  const [editCausaRaiz, setEditCausaRaiz] = useState('');
+  const [editSolucao, setEditSolucao] = useState('');
+  const [editPartNumber, setEditPartNumber] = useState('');
+
+  const [feedback, setFeedback] = useState<{ texto: string; tipo: 'sucesso' | 'erro' } | null>(null);
+
+  const mostrarFeedback = (texto: string, tipo: 'sucesso' | 'erro') => {
+    setFeedback({ texto, tipo });
+    setTimeout(() => {
+      setFeedback(null);
+    }, 3500);
+  };
+
   useEffect(() => {
     async function verificarSessao() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -42,14 +58,11 @@ export default function PainelSupervisor() {
         setVerificando(false);
       }
     }
-
     verificarSessao();
   }, [router]);
 
-  // Função para validar o PIN digitado no modal personalizado
   const handleValidarPin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Senha de supervisor de 6 dígitos
     if (pinInput === "218028") {
       setAutenticadoSupervisor(true);
       setErroPin('');
@@ -76,6 +89,43 @@ export default function PainelSupervisor() {
     setCarregando(false);
   };
 
+  // Iniciar modo de edição para um item específico
+  const iniciarEdicao = (item: Falha) => {
+    setEditandoId(item.id);
+    setEditEquipamento(item.equipamento);
+    setEditSintoma(item.sintoma);
+    setEditCausaRaiz(item.causa_raiz || '');
+    setEditSolucao(item.solucao);
+    setEditPartNumber(item.part_number || '');
+  };
+
+  const cancelarEdicao = () => {
+    setEditandoId(null);
+  };
+
+  // Salvar alterações e aprovar o registo diretamente
+  const salvarEAprovar = async (id: string | number) => {
+    const { error } = await supabase
+      .from('falhas')
+      .update({
+        equipamento: editEquipamento.trim(),
+        sintoma: editSintoma.trim(),
+        causa_raiz: editCausaRaiz.trim(),
+        solucao: editSolucao.trim(),
+        part_number: editPartNumber.trim() || null,
+        aprovado: true, // <--- Aprova automaticamente ao salvar
+      })
+      .eq('id', id);
+
+    if (error) {
+      mostrarFeedback('Erro ao atualizar e aprovar: ' + error.message, 'erro');
+    } else {
+      mostrarFeedback('Ocorrência corrigida, aprovada e publicada com sucesso!', 'sucesso');
+      setEditandoId(null);
+      carregarPendentes();
+    }
+  };
+
   const aprovarFalha = async (id: string | number) => {
     const { error } = await supabase
       .from('falhas')
@@ -83,25 +133,23 @@ export default function PainelSupervisor() {
       .eq('id', id);
 
     if (error) {
-      alert('Erro ao aprovar: ' + error.message);
+      mostrarFeedback('Erro ao aprovar: ' + error.message, 'erro');
     } else {
-      alert('Ocorrência aprovada e publicada com sucesso!');
+      mostrarFeedback('Ocorrência aprovada e publicada com sucesso!', 'sucesso');
       carregarPendentes();
     }
   };
 
   const rejeitarFalha = async (id: string | number) => {
-    if (!confirm('Tem certeza que deseja rejeitar e apagar esta ocorrência?')) return;
-
     const { error } = await supabase
       .from('falhas')
       .delete()
       .eq('id', id);
 
     if (error) {
-      alert('Erro ao rejeitar: ' + error.message);
+      mostrarFeedback('Erro ao rejeitar: ' + error.message, 'erro');
     } else {
-      alert('Ocorrência rejeitada e removida.');
+      mostrarFeedback('Ocorrência rejeitada e removida.', 'sucesso');
       carregarPendentes();
     }
   };
@@ -111,7 +159,6 @@ export default function PainelSupervisor() {
     router.push('/login');
   };
 
-  // Enquanto valida a sessão inicial
   if (verificando) {
     return (
       <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
@@ -120,7 +167,6 @@ export default function PainelSupervisor() {
     );
   }
 
-  // SE AINDA NÃO DIGITOU A SENHA CORRETA, MOSTRA O MODAL BONITO
   if (!autenticadoSupervisor) {
     return (
       <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
@@ -177,11 +223,11 @@ export default function PainelSupervisor() {
     );
   }
 
-  // PAINEL DE MODERAÇÃO REAL (EXIBIDO APÓS DIGITAR A SENHA CORRETA)
   return (
     <main className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
       <div className="max-w-4xl mx-auto space-y-6">
 
+        {/* CABEÇALHO */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
           <div>
             <h1 className="text-2xl font-bold text-yellow-400">
@@ -216,6 +262,18 @@ export default function PainelSupervisor() {
           </div>
         </div>
 
+        {feedback && (
+          <div className={`p-4 rounded-xl border flex items-center justify-between shadow-lg transition-all duration-300 ${
+            feedback.tipo === 'sucesso'
+              ? 'bg-green-500/10 border-green-500/30 text-green-400'
+              : 'bg-red-500/10 border-red-500/30 text-red-400'
+          }`}>
+            <span className="text-sm font-medium flex items-center gap-2">
+              {feedback.tipo === 'sucesso' ? '✅' : '⚠️'} {feedback.texto}
+            </span>
+          </div>
+        )}
+
         {carregando ? (
           <div className="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
             Carregando ocorrências pendentes...
@@ -226,69 +284,154 @@ export default function PainelSupervisor() {
           </div>
         ) : (
           <div className="space-y-4">
-            {pendentes.map((item) => (
-              <div
-                key={item.id}
-                className="bg-gray-800 p-5 rounded-lg border border-yellow-600/50 shadow-lg space-y-4"
-              >
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-gray-700 pb-3">
-                  <span className="bg-blue-950 text-blue-300 border border-blue-800 px-3 py-1 rounded text-sm font-bold">
-                    🔧 {item.equipamento}
-                  </span>
-                  
-                  {/* Informações de autoria e data visíveis apenas para o supervisor */}
-                  <div className="text-xs text-gray-400 text-right space-y-0.5">
-                    <p>Enviado por: <strong className="text-yellow-400">{item.criado_por || 'Anónimo'}</strong></p>
-                    <p>Em: {new Date(item.criado_em).toLocaleDateString('pt-BR')}</p>
-                  </div>
-                </div>
+            {pendentes.map((item) => {
+              const estaEditando = editandoId === item.id;
 
-                <div className="grid md:grid-cols-2 gap-3 text-sm">
-                  <div className="bg-gray-900 p-3 rounded border border-gray-700">
-                    <strong className="text-red-400 block text-xs uppercase mb-1">Sintoma:</strong>
-                    <p className="text-gray-200">{item.sintoma}</p>
-                  </div>
-
-                  {item.causa_raiz && (
-                    <div className="bg-gray-900 p-3 rounded border border-gray-700">
-                      <strong className="text-yellow-400 block text-xs uppercase mb-1">Causa Raiz:</strong>
-                      <p className="text-gray-200">{item.causa_raiz}</p>
+              return (
+                <div
+                  key={item.id}
+                  className="bg-gray-800 p-5 rounded-lg border border-yellow-600/50 shadow-lg space-y-4"
+                >
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-gray-700 pb-3">
+                    {estaEditando ? (
+                      <input
+                        type="text"
+                        value={editEquipamento}
+                        onChange={(e) => setEditEquipamento(e.target.value)}
+                        className="bg-gray-700 text-blue-300 font-bold px-3 py-1 rounded border border-blue-600 text-sm focus:outline-none"
+                      />
+                    ) : (
+                      <span className="bg-blue-950 text-blue-300 border border-blue-800 px-3 py-1 rounded text-sm font-bold">
+                        🔧 {item.equipamento}
+                      </span>
+                    )}
+                    
+                    <div className="text-xs text-gray-400 text-right space-y-0.5">
+                      <p>Enviado por: <strong className="text-yellow-400">{item.criado_por || 'Anónimo'}</strong></p>
+                      <p>Em: {new Date(item.criado_em).toLocaleDateString('pt-BR')}</p>
                     </div>
-                  )}
-                </div>
-
-                <div className="bg-gray-900 p-3 rounded border border-gray-700">
-                  <strong className="text-green-400 block text-xs uppercase mb-1">Solução Aplicada:</strong>
-                  <p className="text-gray-200 text-sm">{item.solucao}</p>
-                </div>
-
-                {item.part_number && (
-                  <div className="bg-gray-900 p-3 rounded border border-gray-700">
-                    <strong className="text-purple-400 block text-xs uppercase mb-1">Part Number:</strong>
-                    <p className="text-gray-200 text-sm font-mono">{item.part_number}</p>
                   </div>
-                )}
 
-                <div className="flex justify-end gap-3 pt-2 border-t border-gray-700">
-                  <button
-                    type="button"
-                    onClick={() => rejeitarFalha(item.id)}
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
-                  >
-                    Rejeitar / Apagar
-                  </button>
+                  {estaEditando ? (
+                    // MODO DE EDIÇÃO ATIVO
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <label className="block text-xs uppercase text-red-400 font-semibold mb-1">Sintoma:</label>
+                        <textarea
+                          rows={2}
+                          value={editSintoma}
+                          onChange={(e) => setEditSintoma(e.target.value)}
+                          className="w-full bg-gray-900 border border-gray-700 p-3 rounded text-white focus:outline-none focus:border-yellow-500"
+                        />
+                      </div>
 
-                  <button
-                    type="button"
-                    onClick={() => aprovarFalha(item.id)}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
-                  >
-                    Aprovar e Publicar
-                  </button>
+                      <div>
+                        <label className="block text-xs uppercase text-yellow-400 font-semibold mb-1">Causa Raiz:</label>
+                        <textarea
+                          rows={2}
+                          value={editCausaRaiz}
+                          onChange={(e) => setEditCausaRaiz(e.target.value)}
+                          className="w-full bg-gray-900 border border-gray-700 p-3 rounded text-white focus:outline-none focus:border-yellow-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs uppercase text-green-400 font-semibold mb-1">Solução Aplicada:</label>
+                        <textarea
+                          rows={2}
+                          value={editSolucao}
+                          onChange={(e) => setEditSolucao(e.target.value)}
+                          className="w-full bg-gray-900 border border-gray-700 p-3 rounded text-white focus:outline-none focus:border-yellow-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs uppercase text-purple-400 font-semibold mb-1">Part Number:</label>
+                        <input
+                          type="text"
+                          value={editPartNumber}
+                          onChange={(e) => setEditPartNumber(e.target.value)}
+                          className="w-full bg-gray-900 border border-gray-700 p-3 rounded text-white font-mono focus:outline-none focus:border-yellow-500"
+                        />
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-2 border-t border-gray-700">
+                        <button
+                          type="button"
+                          onClick={cancelarEdicao}
+                          className="bg-gray-700 hover:bg-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => salvarEAprovar(item.id)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
+                        >
+                          Salvar e Aprovar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // MODO DE VISUALIZAÇÃO NORMAL
+                    <>
+                      <div className="grid md:grid-cols-2 gap-3 text-sm">
+                        <div className="bg-gray-900 p-3 rounded border border-gray-700">
+                          <strong className="text-red-400 block text-xs uppercase mb-1">Sintoma:</strong>
+                          <p className="text-gray-200">{item.sintoma}</p>
+                        </div>
+
+                        {item.causa_raiz && (
+                          <div className="bg-gray-900 p-3 rounded border border-gray-700">
+                            <strong className="text-yellow-400 block text-xs uppercase mb-1">Causa Raiz:</strong>
+                            <p className="text-gray-200">{item.causa_raiz}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="bg-gray-900 p-3 rounded border border-gray-700">
+                        <strong className="text-green-400 block text-xs uppercase mb-1">Solução Aplicada:</strong>
+                        <p className="text-gray-200 text-sm">{item.solucao}</p>
+                      </div>
+
+                      {item.part_number && (
+                        <div className="bg-gray-900 p-3 rounded border border-gray-700">
+                          <strong className="text-purple-400 block text-xs uppercase mb-1">Part Number:</strong>
+                          <p className="text-gray-200 text-sm font-mono">{item.part_number}</p>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap justify-end gap-3 pt-2 border-t border-gray-700">
+                        <button
+                          type="button"
+                          onClick={() => rejeitarFalha(item.id)}
+                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
+                        >
+                          Rejeitar / Apagar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => iniciarEdicao(item)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
+                        >
+                          ✏️ Editar Termos
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => aprovarFalha(item.id)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
+                        >
+                          Aprovar e Publicar
+                        </button>
+                      </div>
+                    </>
+                  )}
+
                 </div>
-
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
