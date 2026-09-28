@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
-import { APP_VERSION } from '@/lib/version'; // 1. Importação da versão que criou
+import { APP_VERSION } from '@/lib/version';
 
 const supabaseUrl = 'https://tkbqnssxdfmdrqiastrj.supabase.co';
 const supabaseAnonKey = 'sb_publishable_Z6Bwn2w0rOE_nuGZrjDTKA_Bev3tqCI';
@@ -73,7 +73,8 @@ export default function Home() {
     if (error) {
       console.error('Erro ao buscar equipamentos:', error);
     } else if (data) {
-      setListaEquipamentos(data.map((any) => eq.nome));
+      // CORREÇÃO APLICADA AQUI: (eq: any)
+      setListaEquipamentos(data.map((eq: any) => eq.nome));
     }
   }
 
@@ -331,12 +332,9 @@ export default function Home() {
         {/* RODAPÉ DISCRETO COM A VERSÃO E ACESSO AO SUPERVISOR */}
         <footer className="mt-12 pt-6 border-t border-gray-800 text-center text-xs text-gray-500 space-y-2">
           <p>Equipamentos de Drilling - Manutenção Industrial</p>
-          
-          {/* 2. Exibição limpa da versão configurada */}
           <div>
             Versão: <span className="font-mono font-semibold text-gray-400">{APP_VERSION}</span>
           </div>
-
           <div className="pt-1">
             <Link 
               href="/supervisor" 
