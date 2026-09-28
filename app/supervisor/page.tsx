@@ -18,6 +18,7 @@ interface Falha {
   solucao: string;
   part_number?: string;
   criado_em: string;
+  criado_por?: string; // <--- Adicionado para suportar o rastreio de autoria
   foto_url?: string;
   aprovado: boolean;
 }
@@ -25,35 +26,39 @@ interface Falha {
 export default function PainelSupervisor() {
   const router = useRouter();
   const [verificando, setVerificando] = useState(true);
+  const [autenticadoSupervisor, setAutenticadoSupervisor] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [erroPin, setErroPin] = useState('');
   const [pendentes, setPendentes] = useState<Falha[]>([]);
   const [carregando, setCarregando] = useState(true);
 
-  // Verifica a sessão do Supabase E pede a senha de supervisor logo na entrada
+  // Verifica se o utilizador está logado no Supabase ao carregar
   useEffect(() => {
-    async function verificarAcessoSupervisor() {
+    async function verificarSessao() {
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session) {
         router.push('/login');
-        return;
+      } else {
+        setVerificando(false);
       }
-
-      // Pede a senha de 6 dígitos antes de deixar ver a página
-      const senhaSupervisor = prompt("Digite a senha de supervisor (6 dígitos) para aceder ao painel:");
-
-      // Substitua '123456' pela senha de supervisor desejada
-      if (senhaSupervisor !== "123456") {
-        alert("Senha incorreta. Acesso negado.");
-        router.push('/'); // Manda o utilizador de volta para o início
-        return;
-      }
-
-      setVerificando(false);
-      carregarPendentes();
     }
 
-    verificarAcessoSupervisor();
+    verificarSessao();
   }, [router]);
+
+  // Função para validar o PIN digitado no modal personalizado
+  const handleValidarPin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Senha de supervisor de 6 dígitos
+    if (pinInput === "218028") {
+      setAutenticadoSupervisor(true);
+      setErroPin('');
+      carregarPendentes();
+    } else {
+      setErroPin('Senha de supervisor incorreta. Tente novamente.');
+      setPinInput('');
+    }
+  };
 
   const carregarPendentes = async () => {
     setCarregando(true);
@@ -106,6 +111,7 @@ export default function PainelSupervisor() {
     router.push('/login');
   };
 
+  // Enquanto valida a sessão inicial
   if (verificando) {
     return (
       <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
@@ -114,6 +120,64 @@ export default function PainelSupervisor() {
     );
   }
 
+  // SE AINDA NÃO DIGITOU A SENHA CORRETA, MOSTRA O MODAL BONITO
+  if (!autenticadoSupervisor) {
+    return (
+      <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
+        <div className="bg-gray-800 border border-gray-700 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-yellow-500/10 text-yellow-400 mb-1 border border-yellow-500/20">
+              🔒
+            </div>
+            <h1 className="text-xl font-bold text-yellow-400">Área Restrita do Supervisor</h1>
+            <p className="text-sm text-gray-400">
+              Introduza a palavra-passe de 6 dígitos para aceder ao painel de moderação.
+            </p>
+          </div>
+
+          {erroPin && (
+            <div className="bg-red-950/80 border border-red-800 text-red-300 p-3 rounded-lg text-xs text-center font-medium">
+              {erroPin}
+            </div>
+          )}
+
+          <form onSubmit={handleValidarPin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wider">
+                Palavra-passe de Segurança
+              </label>
+              <input
+                type="password"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                maxLength={6}
+                autoFocus
+                placeholder="••••••"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-center tracking-widest text-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Link
+                href="/"
+                className="w-1/2 bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold py-2.5 rounded-lg text-center text-sm transition"
+              >
+                Voltar
+              </Link>
+              <button
+                type="submit"
+                className="w-1/2 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold py-2.5 rounded-lg text-sm transition cursor-pointer"
+              >
+                Confirmar
+              </button>
+            </div>
+          </form>
+        </div>
+      </main>
+    );
+  }
+
+  // PAINEL DE MODERAÇÃO REAL (EXIBIDO APÓS DIGITAR A SENHA CORRETA)
   return (
     <main className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -167,13 +231,16 @@ export default function PainelSupervisor() {
                 key={item.id}
                 className="bg-gray-800 p-5 rounded-lg border border-yellow-600/50 shadow-lg space-y-4"
               >
-                <div className="flex justify-between items-center border-b border-gray-700 pb-3">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-gray-700 pb-3">
                   <span className="bg-blue-950 text-blue-300 border border-blue-800 px-3 py-1 rounded text-sm font-bold">
                     🔧 {item.equipamento}
                   </span>
-                  <span className="text-xs text-gray-400">
-                    Enviado em: {new Date(item.criado_em).toLocaleDateString('pt-BR')}
-                  </span>
+                  
+                  {/* Informações de autoria e data visíveis apenas para o supervisor */}
+                  <div className="text-xs text-gray-400 text-right space-y-0.5">
+                    <p>Enviado por: <strong className="text-yellow-400">{item.criado_por || 'Anónimo'}</strong></p>
+                    <p>Em: {new Date(item.criado_em).toLocaleDateString('pt-BR')}</p>
+                  </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-3 text-sm">
