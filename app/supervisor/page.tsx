@@ -26,6 +26,7 @@ interface Falha {
 interface Equipamento {
   id: string;
   nome: string;
+  foto_url?: string;
 }
 
 export default function PainelSupervisor() {
@@ -38,9 +39,12 @@ export default function PainelSupervisor() {
   const [pendentes, setPendentes] = useState<Falha[]>([]);
   const [carregando, setCarregando] = useState(true);
 
-  // Estados para a Gestão de Equipamentos
+  // Estados para a Gestão de Equipamentos (suporta ambas as opções)
   const [listaEquipamentosSupervisor, setListaEquipamentosSupervisor] = useState<Equipamento[]>([]);
   const [novoEquipamentoNome, setNovoEquipamentoNome] = useState('');
+  const [tipoOrigemFoto, setTipoOrigemFoto] = useState<'arquivo' | 'link'>('arquivo');
+  const [arquivoFoto, setArquivoFoto] = useState<File | null>(null);
+  const [novoEquipamentoFotoUrl, setNovoEquipamentoFotoUrl] = useState('');
   const [carregandoEquipamentos, setCarregandoEquipamentos] = useState(false);
 
   // Estados para controlar qual card está em modo de edição
@@ -119,18 +123,53 @@ export default function PainelSupervisor() {
     if (!novoEquipamentoNome.trim()) return;
 
     setCarregandoEquipamentos(true);
-    const { error } = await supabase
-      .from('equipamentos')
-      .insert([{ nome: novoEquipamentoNome.trim() }]);
+    let fotoUrlFinal = '';
 
-    if (error) {
-      mostrarFeedback('Erro ao adicionar equipamento: ' + error.message, 'erro');
-    } else {
+    try {
+      if (tipoOrigemFoto === 'arquivo' && arquivoFoto) {
+        // Opção 1: Upload de ficheiro/câmara para o Storage do Supabase
+        const nomeFicheiro = `${Date.now()}-${arquivoFoto.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('equipamentos') // Certifique-se de ter este bucket criado no Supabase
+          .upload(nomeFicheiro, arquivoFoto);
+
+        if (uploadError) {
+          throw new Error('Erro ao enviar imagem: ' + uploadError.message);
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from('equipamentos')
+          .getPublicUrl(nomeFicheiro);
+
+        fotoUrlFinal = publicUrlData.publicUrl;
+      } else if (tipoOrigemFoto === 'link' && novoEquipamentoFotoUrl.trim()) {
+        // Opção 2: Utilizar diretamente o link externo fornecido
+        fotoUrlFinal = novoEquipamentoFotoUrl.trim();
+      }
+
+      // Inserir na base de dados
+      const { error } = await supabase
+        .from('equipamentos')
+        .insert([{ 
+          nome: novoEquipamentoNome.trim(),
+          foto_url: fotoUrlFinal || null 
+        }]);
+
+      if (error) {
+        throw new Error('Erro ao guardar equipamento: ' + error.message);
+      }
+
       mostrarFeedback('Equipamento adicionado com sucesso!', 'sucesso');
       setNovoEquipamentoNome('');
+      setArquivoFoto(null);
+      setNovoEquipamentoFotoUrl('');
       carregarEquipamentosSupervisor();
+
+    } catch (error: any) {
+      mostrarFeedback(error.message, 'erro');
+    } finally {
+      setCarregandoEquipamentos(false);
     }
-    setCarregandoEquipamentos(false);
   };
 
   const iniciarEdicao = (item: Falha) => {
@@ -316,35 +355,102 @@ export default function PainelSupervisor() {
           </div>
         )}
 
-        {/* SECÇÃO DE GESTÃO DE EQUIPAMENTOS (APENAS INSERÇÃO) */}
+        {/* SECÇÃO DE GESTÃO DE EQUIPAMENTOS COM DUPLA OPÇÃO DE FOTO */}
         <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 space-y-4 shadow-md">
           <div>
             <h2 className="text-lg font-bold text-blue-400">Adicionar Novo Equipamento Oficial</h2>
-            <p className="text-xs text-gray-400">Insira um novo equipamento para disponibilizá-lo na lista global da aplicação</p>
+            <p className="text-xs text-gray-400">Cadastre um equipamento escolhendo enviar um ficheiro/tirar foto ou colar um link web.</p>
           </div>
 
-          <form onSubmit={adicionarEquipamento} className="flex gap-3">
+          <form onSubmit={adicionarEquipamento} className="space-y-4">
             <input
               type="text"
-              placeholder="Nome do novo equipamento..."
+              placeholder="Nome do novo equipamento (ex: Hydratong)..."
               value={novoEquipamentoNome}
               onChange={(e) => setNovoEquipamentoNome(e.target.value)}
-              className="flex-1 bg-gray-900 border border-gray-700 text-white p-3 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+              className="w-full bg-gray-900 border border-gray-700 text-white p-3 rounded-lg text-sm focus:outline-none focus:border-blue-500"
               required
             />
+
+            {/* SELETOR DE MODO DE IMAGEM */}
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Origem da Foto de Capa
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTipoOrigemFoto('arquivo')}
+                  className={`flex-1 py-2 px-3 text-xs font-semibold rounded-lg border transition ${
+                    tipoOrigemFoto === 'arquivo'
+                      ? 'bg-blue-600 border-blue-500 text-white'
+                      : 'bg-gray-900 border-gray-700 text-gray-400 hover:bg-gray-700'
+                  }`}
+                >
+                  📁 Ficheiro / Câmara
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoOrigemFoto('link')}
+                  className={`flex-1 py-2 px-3 text-xs font-semibold rounded-lg border transition ${
+                    tipoOrigemFoto === 'link'
+                      ? 'bg-blue-600 border-blue-500 text-white'
+                      : 'bg-gray-900 border-gray-700 text-gray-400 hover:bg-gray-700'
+                  }`}
+                >
+                  🔗 Colar Link (URL)
+                </button>
+              </div>
+            </div>
+
+            {/* CAMPO DINÂMICO CONFORME A ESCOLHA */}
+            {tipoOrigemFoto === 'arquivo' ? (
+              <div>
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setArquivoFoto(e.target.files[0]);
+                    }
+                  }}
+                  className="w-full bg-gray-900 border border-gray-700 text-gray-300 p-2 rounded-lg text-xs file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">No telemóvel, esta opção permite tirar uma foto diretamente com a câmara.</p>
+              </div>
+            ) : (
+              <div>
+                <input
+                  type="url"
+                  placeholder="https://exemplo.com/imagem.jpg"
+                  value={novoEquipamentoFotoUrl}
+                  onChange={(e) => setNovoEquipamentoFotoUrl(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-700 text-white p-3 rounded-lg text-xs font-mono focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={carregandoEquipamentos}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded-lg text-sm transition cursor-pointer disabled:bg-blue-900"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded-lg text-sm transition cursor-pointer disabled:bg-blue-900"
             >
-              {carregandoEquipamentos ? 'A adicionar...' : '+ Adicionar'}
+              {carregandoEquipamentos ? 'A processar e a guardar...' : '+ Adicionar Equipamento'}
             </button>
           </form>
 
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-2 pt-2 border-t border-gray-700/60">
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-56 overflow-y-auto pr-2 pt-2 border-t border-gray-700/60">
             {listaEquipamentosSupervisor.map((eq) => (
-              <div key={eq.id} className="bg-gray-900 px-3 py-2.5 rounded border border-gray-700 text-xs text-gray-200 font-medium truncate">
-                ⚙️ {eq.nome}
+              <div key={eq.id} className="bg-gray-900 p-3 rounded-lg border border-gray-700 flex items-center gap-3">
+                {eq.foto_url ? (
+                  <img src={eq.foto_url} alt={eq.nome} className="w-10 h-10 rounded object-cover border border-gray-600 flex-shrink-0" />
+                ) : (
+                  <span className="w-10 h-10 flex items-center justify-center bg-gray-800 rounded border border-gray-700 text-base flex-shrink-0">⚙️</span>
+                )}
+                <div className="overflow-hidden">
+                  <div className="text-xs text-white font-medium truncate">{eq.nome}</div>
+                  <div className="text-[10px] text-gray-400 truncate">{eq.foto_url ? 'Com foto' : 'Sem foto'}</div>
+                </div>
               </div>
             ))}
           </div>

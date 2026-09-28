@@ -23,6 +23,11 @@ interface Falha {
   aprovado: boolean;
 }
 
+interface EquipamentoDB {
+  nome: string;
+  foto_url?: string;
+}
+
 export default function Home() {
   const router = useRouter();
 
@@ -32,12 +37,11 @@ export default function Home() {
   const [filtroEquipamento, setFiltroEquipamento] = useState(''); 
   const [equipamentoAberto, setEquipamentoAberto] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [listaEquipamentos, setListaEquipamentos] = useState<string[]>([]);
+  const [listaEquipamentos, setListaEquipamentos] = useState<EquipamentoDB[]>([]);
   const [offlineMode, setOfflineMode] = useState(false);
 
   useEffect(() => {
     async function verificarSessao() {
-      // Verifica se há falhas guardadas localmente para exibir imediatamente se estiver sem rede
       const falhasSalvas = localStorage.getItem('cache_falhas_aprovadas');
       const equipamentosSalvos = localStorage.getItem('cache_equipamentos');
 
@@ -59,8 +63,7 @@ export default function Home() {
       }
 
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      // Se estiver offline mas tiver sessão guardada ou falhas em cache, permite navegar offline
+
       if (!session && sessionError) {
         if (!falhasSalvas) {
           router.push('/login');
@@ -71,8 +74,6 @@ export default function Home() {
       }
 
       setVerificando(false);
-      
-      // Tenta atualizar com os dados mais recentes da nuvem
       carregarFalhas();
       carregarEquipamentosDoBanco();
     }
@@ -92,7 +93,6 @@ export default function Home() {
       setOfflineMode(true);
     } else if (data) {
       setFalhas(data);
-      // Guarda em cache local para acesso offline
       localStorage.setItem('cache_falhas_aprovadas', JSON.stringify(data));
       setOfflineMode(false);
     }
@@ -102,15 +102,14 @@ export default function Home() {
   async function carregarEquipamentosDoBanco() {
     const { data, error } = await supabase
       .from('equipamentos')
-      .select('nome')
+      .select('nome, foto_url')
       .order('nome', { ascending: true });
 
     if (error) {
       console.error('Erro ao buscar equipamentos:', error);
     } else if (data) {
-      const nomes = data.map((eq: any) => eq.nome);
-      setListaEquipamentos(nomes);
-      localStorage.setItem('cache_equipamentos', JSON.stringify(nomes));
+      setListaEquipamentos(data);
+      localStorage.setItem('cache_equipamentos', JSON.stringify(data));
     }
   }
 
@@ -190,8 +189,6 @@ export default function Home() {
         {/* BARRA DE PESQUISA E FILTROS */}
         <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700 space-y-3">
           <div className="flex flex-col md:flex-row gap-3">
-            
-            {/* PESQUISA POR PALAVRA-CHAVE */}
             <div className="flex-1 relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                 🔍
@@ -213,7 +210,6 @@ export default function Home() {
               )}
             </div>
 
-            {/* SELETOR DE EQUIPAMENTO DINÂMICO */}
             <div className="w-full md:w-72">
               <select
                 value={filtroEquipamento}
@@ -222,13 +218,12 @@ export default function Home() {
               >
                 <option value="">Todos os Equipamentos</option>
                 {listaEquipamentos.map((eq) => (
-                  <option key={eq} value={eq}>
-                    {eq}
+                  <option key={eq.nome} value={eq.nome}>
+                    {eq.nome}
                   </option>
                 ))}
               </select>
             </div>
-
           </div>
 
           <div className="flex justify-between items-center text-xs text-gray-400 px-1 pt-1">
@@ -237,20 +232,17 @@ export default function Home() {
           </div>
         </div>
 
-        {/* CARREGANDO */}
         {carregando && falhas.length === 0 && (
           <div className="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
             Carregando ocorrências...
           </div>
         )}
 
-        {/* SEM RESULTADOS */}
         {!carregando && equipamentos.length === 0 && (
           <div className="bg-gray-800 p-8 rounded-lg text-center text-gray-400 border border-gray-700">
             {busca || filtroEquipamento
               ? 'Nenhuma ocorrência aprovada encontrada com estes filtros de pesquisa.'
               : 'Nenhuma ocorrência aprovada registrada no momento.'}
-
             <div className="mt-4">
               <button
                 type="button"
@@ -266,35 +258,40 @@ export default function Home() {
         {/* EQUIPAMENTOS */}
         {equipamentos.length > 0 && (
           <div className="space-y-4">
-            {equipamentos.map(([equipamento, lista]) => {
-              const estaAberto = equipamentoAberto === equipamento;
+            {equipamentos.map(([nomeEquipamento, lista]) => {
+              const estaAberto = equipamentoAberto === nomeEquipamento;
+
+              // Procura a foto de capa oficial deste equipamento cadastrada na tabela de equipamentos
+              const dadosEquipamento = listaEquipamentos.find(eq => eq.nome === nomeEquipamento);
+              const fotoCapa = dadosEquipamento?.foto_url;
 
               return (
                 <div
-                  key={equipamento}
+                  key={nomeEquipamento}
                   className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden shadow"
                 >
                   <button
                     type="button"
                     onClick={() =>
-                      setEquipamentoAberto(estaAberto ? null : equipamento)
+                      setEquipamentoAberto(estaAberto ? null : nomeEquipamento)
                     }
                     className="w-full flex justify-between items-center p-4 hover:bg-gray-700 transition text-left cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      {lista[0]?.foto_url ? (
+                      {/* FOTO DE CAPA DO GRUPO (EQUIPAMENTO) OU ENGRENAGEM DE FALLBACK */}
+                      {fotoCapa ? (
                         <img 
-                          src={lista[0].foto_url} 
-                          alt={equipamento} 
-                          className="w-12 h-12 rounded-lg object-cover border border-gray-600"
+                          src={fotoCapa} 
+                          alt={nomeEquipamento} 
+                          className="w-12 h-12 rounded-lg object-cover border border-gray-600 flex-shrink-0"
                         />
                       ) : (
-                        <span className="text-2xl">⚙️</span>
+                        <span className="text-2xl w-12 h-12 flex items-center justify-center bg-gray-900 rounded-lg border border-gray-700 flex-shrink-0">⚙️</span>
                       )}
 
                       <div>
                         <div className="font-semibold text-lg text-blue-300">
-                          {equipamento}
+                          {nomeEquipamento}
                         </div>
                         <div className="text-xs text-gray-400 mt-1">
                           {lista.length}{' '}
@@ -315,9 +312,9 @@ export default function Home() {
                       {lista.map((item) => (
                         <div
                           key={item.id}
-                          className="bg-gray-800 p-4 rounded-lg border border-gray-700"
+                          className="bg-gray-800 p-4 rounded-lg border border-gray-700 space-y-3"
                         >
-                          <div className="grid gap-4">
+                          <div className="grid gap-3">
                             <div>
                               <strong className="text-red-400 block text-xs uppercase mb-1">
                                 Sintoma
@@ -356,6 +353,22 @@ export default function Home() {
                               </div>
                             )}
 
+                            {/* FOTO ESPECÍFICA DA FALHA (REGISTRADA PELO TÉCNICO) */}
+                            {item.foto_url && (
+                              <div className="pt-2">
+                                <strong className="text-blue-400 block text-xs uppercase mb-2">
+                                  Foto da Ocorrência:
+                                </strong>
+                                <a href={item.foto_url} target="_blank" rel="noopener noreferrer">
+                                  <img 
+                                    src={item.foto_url} 
+                                    alt="Foto da Falha" 
+                                    className="w-32 h-32 rounded-lg object-cover border border-gray-700 hover:opacity-90 transition cursor-pointer shadow" 
+                                  />
+                                </a>
+                              </div>
+                            )}
+
                             <div className="text-right text-xs text-gray-500 pt-2 border-t border-gray-700">
                               Registrado em:{' '}
                               {new Date(item.criado_em).toLocaleDateString('pt-BR')}
@@ -365,14 +378,13 @@ export default function Home() {
                       ))}
                     </div>
                   )}
-
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* RODAPÉ DISCRETO COM A VERSÃO E ACESSO AO SUPERVISOR */}
+        {/* RODAPÉ */}
         <footer className="mt-12 pt-6 border-t border-gray-800 text-center text-xs text-gray-500 space-y-2">
           <p>Equipamentos de Drilling - Manutenção Industrial</p>
           <div>
