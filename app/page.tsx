@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
+import { APP_VERSION } from '@/lib/version'; // 1. Importação da versão que criou
 
 const supabaseUrl = 'https://tkbqnssxdfmdrqiastrj.supabase.co';
 const supabaseAnonKey = 'sb_publishable_Z6Bwn2w0rOE_nuGZrjDTKA_Bev3tqCI';
@@ -31,11 +32,8 @@ export default function Home() {
   const [filtroEquipamento, setFiltroEquipamento] = useState(''); 
   const [equipamentoAberto, setEquipamentoAberto] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
-  
-  // Novo estado para guardar a lista de equipamentos vindos do Supabase
   const [listaEquipamentos, setListaEquipamentos] = useState<string[]>([]);
 
-  // Verifica a autenticação e carrega os dados iniciais
   useEffect(() => {
     async function verificarSessao() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -44,7 +42,7 @@ export default function Home() {
       } else {
         setVerificando(false);
         carregarFalhas();
-        carregarEquipamentosDoBanco(); // Carrega os equipamentos do Supabase
+        carregarEquipamentosDoBanco();
       }
     }
     verificarSessao();
@@ -66,7 +64,6 @@ export default function Home() {
     setCarregando(false);
   }
 
-  // Função que busca a lista oficial de equipamentos atualizada na base de dados
   async function carregarEquipamentosDoBanco() {
     const { data, error } = await supabase
       .from('equipamentos')
@@ -331,10 +328,16 @@ export default function Home() {
           </div>
         )}
 
-        {/* RODAPÉ DISCRETO COM ACESSO AO SUPERVISOR */}
-        <footer className="mt-12 pt-6 border-t border-gray-800 text-center text-xs text-gray-500">
+        {/* RODAPÉ DISCRETO COM A VERSÃO E ACESSO AO SUPERVISOR */}
+        <footer className="mt-12 pt-6 border-t border-gray-800 text-center text-xs text-gray-500 space-y-2">
           <p>Equipamentos de Drilling - Manutenção Industrial</p>
-          <div className="mt-2">
+          
+          {/* 2. Exibição limpa da versão configurada */}
+          <div>
+            Versão: <span className="font-mono font-semibold text-gray-400">{APP_VERSION}</span>
+          </div>
+
+          <div className="pt-1">
             <Link 
               href="/supervisor" 
               className="hover:text-gray-300 transition underline decoration-gray-700 cursor-pointer"
