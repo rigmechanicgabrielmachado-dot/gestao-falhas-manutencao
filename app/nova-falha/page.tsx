@@ -36,7 +36,8 @@ export default function NovaFalha() {
       if (error) {
         console.error('Erro ao buscar equipamentos:', error);
       } else if (data) {
-        setListaEquipamentos(data.map((eq) => eq.nome));
+        // CORREÇÃO APLICADA AQUI (tipagem explícita para evitar o erro de build)
+        setListaEquipamentos(data.map((eq: any) => eq.nome));
       }
     }
 
