@@ -28,20 +28,23 @@ export default function Home() {
   const [verificando, setVerificando] = useState(true);
   const [falhas, setFalhas] = useState<Falha[]>([]);
   const [busca, setBusca] = useState('');
-  const [filtroEquipamento, setFiltroEquipamento] = useState(''); // Novo estado para o filtro de equipamento
+  const [filtroEquipamento, setFiltroEquipamento] = useState(''); 
   const [equipamentoAberto, setEquipamentoAberto] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
+  
+  // Novo estado para guardar a lista de equipamentos vindos do Supabase
+  const [listaEquipamentos, setListaEquipamentos] = useState<string[]>([]);
 
-  // Verifica a autenticação do usuário antes de carregar a página
+  // Verifica a autenticação e carrega os dados iniciais
   useEffect(() => {
     async function verificarSessao() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        // Se não houver sessão ativa, redireciona para o login
         router.push('/login');
       } else {
         setVerificando(false);
         carregarFalhas();
+        carregarEquipamentosDoBanco(); // Carrega os equipamentos do Supabase
       }
     }
     verificarSessao();
@@ -49,7 +52,6 @@ export default function Home() {
 
   async function carregarFalhas() {
     setCarregando(true);
-
     const { data, error } = await supabase
       .from('falhas')
       .select('*')
@@ -61,20 +63,29 @@ export default function Home() {
     } else {
       setFalhas(data || []);
     }
-
     setCarregando(false);
+  }
+
+  // Função que busca a lista oficial de equipamentos atualizada na base de dados
+  async function carregarEquipamentosDoBanco() {
+    const { data, error } = await supabase
+      .from('equipamentos')
+      .select('nome')
+      .order('nome', { ascending: true });
+
+    if (error) {
+      console.error('Erro ao buscar equipamentos:', error);
+    } else if (data) {
+      setListaEquipamentos(data.map((eq) => eq.nome));
+    }
   }
 
   const termo = busca.toLowerCase().trim();
 
-  // Filtragem combinada por Palavra-chave (Sintoma, Solução, Causa Raiz, Part Number) e por Equipamento selecionado
   const falhasFiltradas = falhas.filter((item) => {
-    // Validação do filtro de equipamento do dropdown
     if (filtroEquipamento && item.equipamento !== filtroEquipamento) {
       return false;
     }
-
-    // Validação do texto de busca livre
     if (!termo) return true;
 
     return (
@@ -89,13 +100,10 @@ export default function Home() {
   const falhasPorEquipamento = falhasFiltradas.reduce(
     (acc, falha) => {
       const equipamento = falha.equipamento?.trim() || 'Outros';
-
       if (!acc[equipamento]) {
         acc[equipamento] = [];
       }
-
       acc[equipamento].push(falha);
-
       return acc;
     },
     {} as Record<string, Falha[]>
@@ -105,7 +113,6 @@ export default function Home() {
     ([a], [b]) => a.localeCompare(b, 'pt-BR')
   );
 
-  // Mostra um aviso enquanto valida se o usuário está logado
   if (verificando) {
     return (
       <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
@@ -165,7 +172,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* SELETOR DE EQUIPAMENTO */}
+            {/* SELETOR DE EQUIPAMENTO DINÂMICO */}
             <div className="w-full md:w-72">
               <select
                 value={filtroEquipamento}
@@ -173,28 +180,11 @@ export default function Home() {
                 className="w-full bg-gray-900 border border-gray-700 text-white p-3 rounded-lg text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 <option value="">Todos os Equipamentos</option>
-                <option value="Bomba de Lama">Bomba de Lama</option>
-              <option value="BX Elevator">BX Elevator</option>
-              <option value="Catline">Catline</option>
-              <option value="Cesta de manutenção">Cesta de manutenção</option>
-              <option value="Compressor de Alta Pressão">Compressor de Alta Pressão</option>
-              <option value="Drawworks">Drawworks</option>
-              <option value="Fingerboard">Fingerboard</option>
-              <option value="Guindaste 100 ton">Guindaste 100 ton</option>
-              <option value="Guindaste AHC">Guindaste AHC</option>
-              <option value="HPU">HPU</option>
-              <option value="Hydratong">Hydratong</option>
-              <option value="Hydraracker">Hydraracker</option>
-              <option value="Manrider">Manrider</option>
-              <option value="Mesa Rotativa">Mesa Rotativa</option>
-              <option value="Pipe Catwalk">Pipe Catwalk</option>
-              <option value="PS30">PS30</option>
-              <option value="PS495">PS495</option>
-              <option value="Riser Catwalk">Riser Catwalk</option>
-              <option value="Riser Gantry Crane">Riser Gantry Crane</option>
-              <option value="Top Drive">Top Drive</option>
-              <option value="X-Mas Tree Skid">X-Mas Tree Skid</option>
-              <option value="X-Mas Tree Troley">X-Mas Tree Troley</option>
+                {listaEquipamentos.map((eq) => (
+                  <option key={eq} value={eq}>
+                    {eq}
+                  </option>
+                ))}
               </select>
             </div>
 

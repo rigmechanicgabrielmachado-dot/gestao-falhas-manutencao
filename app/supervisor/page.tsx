@@ -23,6 +23,11 @@ interface Falha {
   aprovado: boolean;
 }
 
+interface Equipamento {
+  id: string;
+  nome: string;
+}
+
 export default function PainelSupervisor() {
   const router = useRouter();
   const [verificando, setVerificando] = useState(true);
@@ -31,6 +36,11 @@ export default function PainelSupervisor() {
   const [erroPin, setErroPin] = useState('');
   const [pendentes, setPendentes] = useState<Falha[]>([]);
   const [carregando, setCarregando] = useState(true);
+
+  // Estados para a Gestão de Equipamentos
+  const [listaEquipamentosSupervisor, setListaEquipamentosSupervisor] = Equipamento[] ? useState<Equipamento[]>([]) : useState<Equipamento[]>([]);
+  const [novoEquipamentoNome, setNovoEquipamentoNome] = useState('');
+  const [carregandoEquipamentos, setCarregandoEquipamentos] = useState(false);
 
   // Estados para controlar qual card está em modo de edição
   const [editandoId, setEditandoId] = useState<string | number | null>(null);
@@ -67,6 +77,7 @@ export default function PainelSupervisor() {
       setAutenticadoSupervisor(true);
       setErroPin('');
       carregarPendentes();
+      carregarEquipamentosSupervisor(); // Carrega os equipamentos ao entrar no painel
     } else {
       setErroPin('Senha de supervisor incorreta. Tente novamente.');
       setPinInput('');
@@ -89,6 +100,55 @@ export default function PainelSupervisor() {
     setCarregando(false);
   };
 
+  // Funções de Gestão de Equipamentos
+  const carregarEquipamentosSupervisor = async () => {
+    const { data, error } = await supabase
+      .from('equipamentos')
+      .select('*')
+      .order('nome', { ascending: true });
+
+    if (error) {
+      console.error('Erro ao buscar equipamentos:', error);
+    } else {
+      setListaEquipamentosSupervisor(data || []);
+    }
+  };
+
+  const adicionarEquipamento = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!novoEquipamentoNome.trim()) return;
+
+    setCarregandoEquipamentos(true);
+    const { error } = await supabase
+      .from('equipamentos')
+      .insert([{ nome: novoEquipamentoNome.trim() }]);
+
+    if (error) {
+      mostrarFeedback('Erro ao adicionar equipamento: ' + error.message, 'erro');
+    } else {
+      mostrarFeedback('Equipamento adicionado com sucesso!', 'sucesso');
+      setNovoEquipamentoNome('');
+      carregarEquipamentosSupervisor();
+    }
+    setCarregandoEquipamentos(false);
+  };
+
+  const apagarEquipamento = async (id: string, nome: string) => {
+    if (!confirm(`Tem certeza de que deseja remover "${nome}" da lista oficial?`)) return;
+
+    const { error } = await supabase
+      .from('equipamentos')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      mostrarFeedback('Erro ao apagar equipamento: ' + error.message, 'erro');
+    } else {
+      mostrarFeedback('Equipamento removido com sucesso!', 'sucesso');
+      carregarEquipamentosSupervisor();
+    }
+  };
+
   // Iniciar modo de edição para um item específico
   const iniciarEdicao = (item: Falha) => {
     setEditandoId(item.id);
@@ -103,7 +163,6 @@ export default function PainelSupervisor() {
     setEditandoId(null);
   };
 
-  // Salvar alterações e aprovar o registo diretamente
   const salvarEAprovar = async (id: string | number) => {
     const { error } = await supabase
       .from('falhas')
@@ -113,7 +172,7 @@ export default function PainelSupervisor() {
         causa_raiz: editCausaRaiz.trim(),
         solucao: editSolucao.trim(),
         part_number: editPartNumber.trim() || null,
-        aprovado: true, // <--- Aprova automaticamente ao salvar
+        aprovado: true,
       })
       .eq('id', id);
 
@@ -274,166 +333,208 @@ export default function PainelSupervisor() {
           </div>
         )}
 
-        {carregando ? (
-          <div className="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
-            Carregando ocorrências pendentes...
+        {/* SECÇÃO DE GESTÃO DE EQUIPAMENTOS */}
+        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 space-y-4 shadow-md">
+          <div>
+            <h2 className="text-lg font-bold text-blue-400">Gestão de Equipamentos Oficiais</h2>
+            <p className="text-xs text-gray-400">Adicione novos equipamentos ou remova os existentes da lista global da aplicação</p>
           </div>
-        ) : pendentes.length === 0 ? (
-          <div className="bg-gray-800 p-12 rounded-lg text-center border border-gray-700 text-gray-400">
-            ✅ Não há nenhuma ocorrência pendente de moderação no momento.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {pendentes.map((item) => {
-              const estaEditando = editandoId === item.id;
 
-              return (
-                <div
-                  key={item.id}
-                  className="bg-gray-800 p-5 rounded-lg border border-yellow-600/50 shadow-lg space-y-4"
+          <form onSubmit={adicionarEquipamento} className="flex gap-3">
+            <input
+              type="text"
+              placeholder="Nome do novo equipamento..."
+              value={novoEquipamentoNome}
+              onChange={(e) => setNovoEquipamentoNome(e.target.value)}
+              className="flex-1 bg-gray-900 border border-gray-700 text-white p-3 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+              required
+            />
+            <button
+              type="submit"
+              disabled={carregandoEquipamentos}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded-lg text-sm transition cursor-pointer disabled:bg-blue-900"
+            >
+              {carregandoEquipamentos ? 'A adicionar...' : '+ Adicionar'}
+            </button>
+          </form>
+
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-2 pt-2 border-t border-gray-700/60">
+            {listaEquipamentosSupervisor.map((eq) => (
+              <div key={eq.id} className="flex justify-between items-center bg-gray-900 px-3 py-2 rounded border border-gray-700">
+                <span className="text-xs text-gray-200 font-medium truncate mr-2">{eq.nome}</span>
+                <button
+                  type="button"
+                  onClick={() => apagarEquipamento(eq.id, eq.nome)}
+                  className="text-red-400 hover:text-red-300 text-xs font-semibold px-2 py-1 bg-red-500/10 hover:bg-red-500/20 rounded transition cursor-pointer shrink-0"
                 >
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-gray-700 pb-3">
-                    {estaEditando ? (
-                      <input
-                        type="text"
-                        value={editEquipamento}
-                        onChange={(e) => setEditEquipamento(e.target.value)}
-                        className="bg-gray-700 text-blue-300 font-bold px-3 py-1 rounded border border-blue-600 text-sm focus:outline-none"
-                      />
-                    ) : (
-                      <span className="bg-blue-950 text-blue-300 border border-blue-800 px-3 py-1 rounded text-sm font-bold">
-                        🔧 {item.equipamento}
-                      </span>
-                    )}
-                    
-                    <div className="text-xs text-gray-400 text-right space-y-0.5">
-                      <p>Enviado por: <strong className="text-yellow-400">{item.criado_por || 'Anónimo'}</strong></p>
-                      <p>Em: {new Date(item.criado_em).toLocaleDateString('pt-BR')}</p>
-                    </div>
-                  </div>
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
 
-                  {estaEditando ? (
-                    // MODO DE EDIÇÃO ATIVO
-                    <div className="space-y-3 text-sm">
-                      <div>
-                        <label className="block text-xs uppercase text-red-400 font-semibold mb-1">Sintoma:</label>
-                        <textarea
-                          rows={2}
-                          value={editSintoma}
-                          onChange={(e) => setEditSintoma(e.target.value)}
-                          className="w-full bg-gray-900 border border-gray-700 p-3 rounded text-white focus:outline-none focus:border-yellow-500"
-                        />
-                      </div>
+        {/* LISTA DE OCORRÊNCIAS PENDENTES */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-yellow-400">Ocorrências Pendentes de Aprovação</h2>
 
-                      <div>
-                        <label className="block text-xs uppercase text-yellow-400 font-semibold mb-1">Causa Raiz:</label>
-                        <textarea
-                          rows={2}
-                          value={editCausaRaiz}
-                          onChange={(e) => setEditCausaRaiz(e.target.value)}
-                          className="w-full bg-gray-900 border border-gray-700 p-3 rounded text-white focus:outline-none focus:border-yellow-500"
-                        />
-                      </div>
+          {carregando ? (
+            <div className="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
+              Carregando ocorrências pendentes...
+            </div>
+          ) : pendentes.length === 0 ? (
+            <div className="bg-gray-800 p-8 rounded-lg text-center border border-gray-700 text-gray-400">
+              ✅ Não há nenhuma ocorrência pendente de moderação no momento.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {pendentes.map((item) => {
+                const estaEditando = editandoId === item.id;
 
-                      <div>
-                        <label className="block text-xs uppercase text-green-400 font-semibold mb-1">Solução Aplicada:</label>
-                        <textarea
-                          rows={2}
-                          value={editSolucao}
-                          onChange={(e) => setEditSolucao(e.target.value)}
-                          className="w-full bg-gray-900 border border-gray-700 p-3 rounded text-white focus:outline-none focus:border-yellow-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs uppercase text-purple-400 font-semibold mb-1">Part Number:</label>
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-gray-800 p-5 rounded-lg border border-yellow-600/50 shadow-lg space-y-4"
+                  >
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-gray-700 pb-3">
+                      {estaEditando ? (
                         <input
                           type="text"
-                          value={editPartNumber}
-                          onChange={(e) => setEditPartNumber(e.target.value)}
-                          className="w-full bg-gray-900 border border-gray-700 p-3 rounded text-white font-mono focus:outline-none focus:border-yellow-500"
+                          value={editEquipamento}
+                          onChange={(e) => setEditEquipamento(e.target.value)}
+                          className="bg-gray-700 text-blue-300 font-bold px-3 py-1 rounded border border-blue-600 text-sm focus:outline-none"
                         />
-                      </div>
-
-                      <div className="flex justify-end gap-2 pt-2 border-t border-gray-700">
-                        <button
-                          type="button"
-                          onClick={cancelarEdicao}
-                          className="bg-gray-700 hover:bg-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => salvarEAprovar(item.id)}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
-                        >
-                          Salvar e Aprovar
-                        </button>
+                      ) : (
+                        <span className="bg-blue-950 text-blue-300 border border-blue-800 px-3 py-1 rounded text-sm font-bold">
+                          🔧 {item.equipamento}
+                        </span>
+                      )}
+                      <div className="text-xs text-gray-400 text-right space-y-0.5">
+                        <p>Enviado por: <strong className="text-yellow-400">{item.criado_por || 'Anónimo'}</strong></p>
+                        <p>Em: {new Date(item.criado_em).toLocaleDateString('pt-BR')}</p>
                       </div>
                     </div>
-                  ) : (
-                    // MODO DE VISUALIZAÇÃO NORMAL
-                    <>
-                      <div className="grid md:grid-cols-2 gap-3 text-sm">
-                        <div className="bg-gray-900 p-3 rounded border border-gray-700">
-                          <strong className="text-red-400 block text-xs uppercase mb-1">Sintoma:</strong>
-                          <p className="text-gray-200">{item.sintoma}</p>
+
+                    {estaEditando ? (
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <label className="block text-xs uppercase text-red-400 font-semibold mb-1">Sintoma:</label>
+                          <textarea
+                            rows={2}
+                            value={editSintoma}
+                            onChange={(e) => setEditSintoma(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-700 p-3 rounded text-white focus:outline-none focus:border-yellow-500"
+                          />
                         </div>
 
-                        {item.causa_raiz && (
+                        <div>
+                          <label className="block text-xs uppercase text-yellow-400 font-semibold mb-1">Causa Raiz:</label>
+                          <textarea
+                            rows={2}
+                            value={editCausaRaiz}
+                            onChange={(e) => setEditCausaRaiz(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-700 p-3 rounded text-white focus:outline-none focus:border-yellow-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs uppercase text-green-400 font-semibold mb-1">Solução Aplicada:</label>
+                          <textarea
+                            rows={2}
+                            value={editSolucao}
+                            onChange={(e) => setEditSolucao(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-700 p-3 rounded text-white focus:outline-none focus:border-yellow-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs uppercase text-purple-400 font-semibold mb-1">Part Number:</label>
+                          <input
+                            type="text"
+                            value={editPartNumber}
+                            onChange={(e) => setEditPartNumber(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-700 p-3 rounded text-white font-mono focus:outline-none focus:border-yellow-500"
+                          />
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2 border-t border-gray-700">
+                          <button
+                            type="button"
+                            onClick={cancelarEdicao}
+                            className="bg-gray-700 hover:bg-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => salvarEAprovar(item.id)}
+                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
+                          >
+                            Salvar e Aprovar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid md:grid-cols-2 gap-3 text-sm">
                           <div className="bg-gray-900 p-3 rounded border border-gray-700">
-                            <strong className="text-yellow-400 block text-xs uppercase mb-1">Causa Raiz:</strong>
-                            <p className="text-gray-200">{item.causa_raiz}</p>
+                            <strong className="text-red-400 block text-xs uppercase mb-1">Sintoma:</strong>
+                            <p className="text-gray-200">{item.sintoma}</p>
+                          </div>
+
+                          {item.causa_raiz && (
+                            <div className="bg-gray-900 p-3 rounded border border-gray-700">
+                              <strong className="text-yellow-400 block text-xs uppercase mb-1">Causa Raiz:</strong>
+                              <p className="text-gray-200">{item.causa_raiz}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="bg-gray-900 p-3 rounded border border-gray-700">
+                          <strong className="text-green-400 block text-xs uppercase mb-1">Solução Aplicada:</strong>
+                          <p className="text-gray-200 text-sm">{item.solucao}</p>
+                        </div>
+
+                        {item.part_number && (
+                          <div className="bg-gray-900 p-3 rounded border border-gray-700">
+                            <strong className="text-purple-400 block text-xs uppercase mb-1">Part Number:</strong>
+                            <p className="text-gray-200 text-sm font-mono">{item.part_number}</p>
                           </div>
                         )}
-                      </div>
 
-                      <div className="bg-gray-900 p-3 rounded border border-gray-700">
-                        <strong className="text-green-400 block text-xs uppercase mb-1">Solução Aplicada:</strong>
-                        <p className="text-gray-200 text-sm">{item.solucao}</p>
-                      </div>
+                        <div className="flex flex-wrap justify-end gap-3 pt-2 border-t border-gray-700">
+                          <button
+                            type="button"
+                            onClick={() => rejeitarFalha(item.id)}
+                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
+                          >
+                            Rejeitar / Apagar
+                          </button>
 
-                      {item.part_number && (
-                        <div className="bg-gray-900 p-3 rounded border border-gray-700">
-                          <strong className="text-purple-400 block text-xs uppercase mb-1">Part Number:</strong>
-                          <p className="text-gray-200 text-sm font-mono">{item.part_number}</p>
+                          <button
+                            type="button"
+                            onClick={() => iniciarEdicao(item)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
+                          >
+                            ✏️ Editar Termos
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => aprovarFalha(item.id)}
+                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
+                          >
+                            Aprovar e Publicar
+                          </button>
                         </div>
-                      )}
-
-                      <div className="flex flex-wrap justify-end gap-3 pt-2 border-t border-gray-700">
-                        <button
-                          type="button"
-                          onClick={() => rejeitarFalha(item.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
-                        >
-                          Rejeitar / Apagar
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => iniciarEdicao(item)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
-                        >
-                          ✏️ Editar Termos
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => aprovarFalha(item.id)}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition cursor-pointer"
-                        >
-                          Aprovar e Publicar
-                        </button>
-                      </div>
-                    </>
-                  )}
-
-                </div>
-              );
-            })}
-          </div>
-        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
       </div>
     </main>

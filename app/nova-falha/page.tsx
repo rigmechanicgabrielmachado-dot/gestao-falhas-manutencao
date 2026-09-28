@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
@@ -20,7 +20,28 @@ export default function NovaFalha() {
   const [partNumber, setPartNumber] = useState('');
   const [arquivoFoto, setArquivoFoto] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const [sucesso, setSucesso] = useState(false); // <--- Estado para controlar o ecrã de sucesso
+  const [sucesso, setSucesso] = useState(false); 
+
+  // Novo estado para guardar a lista de equipamentos vindos do Supabase
+  const [listaEquipamentos, setListaEquipamentos] = useState<string[]>([]);
+
+  // Carrega a lista de equipamentos do Supabase ao abrir a página
+  useEffect(() => {
+    async function carregarEquipamentosDoBanco() {
+      const { data, error } = await supabase
+        .from('equipamentos')
+        .select('nome')
+        .order('nome', { ascending: true });
+
+      if (error) {
+        console.error('Erro ao buscar equipamentos:', error);
+      } else if (data) {
+        setListaEquipamentos(data.map((eq) => eq.nome));
+      }
+    }
+
+    carregarEquipamentosDoBanco();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,11 +93,11 @@ export default function NovaFalha() {
       setEnviando(false);
     } else {
       setEnviando(false);
-      setSucesso(true); // <--- Ativa o ecrã bonito de sucesso em vez de usar alert()
+      setSucesso(true); 
     }
   };
 
-  // SE O ENVIO FOI CONCLUÍDO COM SSUCESSO, EXIBE ESTE CARD ELEGANTE
+  // SE O ENVIO FOI CONCLUÍDO COM SUCESSO, EXIBE ESTE CARD ELEGANTE
   if (sucesso) {
     return (
       <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
@@ -84,7 +105,6 @@ export default function NovaFalha() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/10 text-green-400 mb-2 border border-green-500/20 text-2xl animate-bounce">
             ✅
           </div>
-          
           <div className="space-y-2">
             <h1 className="text-2xl font-bold text-green-400">Ocorrência Registada!</h1>
             <p className="text-sm text-gray-300 leading-relaxed">
@@ -123,6 +143,7 @@ export default function NovaFalha() {
   return (
     <main className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
       <div className="max-w-2xl mx-auto space-y-6">
+        
         {/* CABEÇALHO */}
         <div className="flex justify-between items-center bg-gray-800 p-6 rounded-lg border border-gray-700">
           <div>
@@ -151,28 +172,11 @@ export default function NovaFalha() {
               className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="" disabled>Selecione o equipamento da lista...</option>
-              <option value="Bomba de Lama">Bomba de Lama</option>
-              <option value="BX Elevator">BX Elevator</option>
-              <option value="Catline">Catline</option>
-              <option value="Cesta de manutenção">Cesta de manutenção</option>
-              <option value="Compressor de Alta Pressão">Compressor de Alta Pressão</option>
-              <option value="Drawworks">Drawworks</option>
-              <option value="Fingerboard">Fingerboard</option>
-              <option value="Guindaste 100 ton">Guindaste 100 ton</option>
-              <option value="Guindaste AHC">Guindaste AHC</option>
-              <option value="HPU">HPU</option>
-              <option value="Hydratong">Hydratong</option>
-              <option value="Hydraracker">Hydraracker</option>
-              <option value="Manrider">Manrider</option>
-              <option value="Mesa Rotativa">Mesa Rotativa</option>
-              <option value="Pipe Catwalk">Pipe Catwalk</option>
-              <option value="PS30">PS30</option>
-              <option value="PS495">PS495</option>
-              <option value="Riser Catwalk">Riser Catwalk</option>
-              <option value="Riser Gantry Crane">Riser Gantry Crane</option>
-              <option value="Top Drive">Top Drive</option>
-              <option value="X-Mas Tree Skid">X-Mas Tree Skid</option>
-              <option value="X-Mas Tree Troley">X-Mas Tree Troley</option>
+              {listaEquipamentos.map((eq) => (
+                <option key={eq} value={eq}>
+                  {eq}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -259,6 +263,7 @@ export default function NovaFalha() {
           </button>
 
         </form>
+
       </div>
     </main>
   );
