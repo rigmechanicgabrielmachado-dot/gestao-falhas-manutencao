@@ -73,7 +73,7 @@ export default function Home() {
     if (error) {
       console.error('Erro ao buscar equipamentos:', error);
     } else if (data) {
-      setListaEquipamentos(data.map((eq) => eq.nome));
+      setListaEquipamentos(data.map((any) => eq.nome));
     }
   }
 
