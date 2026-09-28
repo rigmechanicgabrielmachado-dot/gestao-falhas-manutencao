@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const supabaseUrl = 'https://tkbqnssxdfmdrqiastrj.supabase.co';
 const supabaseAnonKey = 'sb_publishable_Z6Bwn2w0rOE_nuGZrjDTKA_Bev3tqCI';
@@ -25,14 +24,14 @@ export default function RelatorioPDF() {
   const router = useRouter();
   const [falhas, setFalhas] = useState<Falha[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [modoImpressao, setModoImpressao] = useState<'todos' | 'graficos'>('todos');
 
   useEffect(() => {
-    async function carregarAprovadas() {
+    async function carregarDados() {
       setCarregando(true);
       const { data, error } = await supabase
         .from('falhas')
         .select('*')
-        .eq('aprovado', true)
         .order('criado_em', { ascending: false });
 
       if (error) {
@@ -42,103 +41,226 @@ export default function RelatorioPDF() {
       }
       setCarregando(false);
     }
-    carregarAprovadas();
+    carregarDados();
   }, []);
 
-  const imprimirPDF = () => {
-    window.print();
+  const imprimirRelatorio = (tipo: 'todos' | 'graficos') => {
+    setModoImpressao(tipo);
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
-  // Lógica para calcular os equipamentos que mais têm falhas
-  const contagemEquipamentos = falhas.reduce((acc, falha) => {
-    const eq = falha.equipamento || 'Outros';
-    acc[eq] = (acc[eq] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const totalGeral = falhas.length || 1;
 
-  // Transforma em array para o Recharts e pega os top 5 equipamentos com mais ocorrências
-  const dadosGrafico = Object.entries(contagemEquipamentos)
-    .map(([name, falhas]) => ({ name, falhas }))
-    .sort((a, b) => b.falhas - a.falhas)
+  let contSintoma = { vazamento: 0, quebra: 0, vibracao: 0, aquecimento: 0, falha: 0, alarme: 0, outros: 0 };
+  let contAcao = { substituicao: 0, reparo: 0, ajuste: 0 };
+  let contEquipamento: { [key: string]: number } = {};
+
+  falhas.forEach(item => {
+    const sint = (item.sintoma || "").toLowerCase();
+    
+    // CORREÇÃO APLICADA AQUI: Adicionada a verificação da palavra 'alarme'
+    if (sint.includes('vazamento') || sint.includes('fuga')) {
+      contSintoma.vazamento++;
+    } else if (sint.includes('quebra') || sint.includes('trinca') || sint.includes('ruptura')) {
+      contSintoma.quebra++;
+    } else if (sint.includes('vibra') || sint.includes('ruído') || sint.includes('barulh')) {
+      contSintoma.vibracao++;
+    } else if (sint.includes('aqueciment') || sint.includes('temperatura')) {
+      contSintoma.aquecimento++;
+    } else if (sint.includes('alarme')) {
+      contSintoma.alarme++;
+    } else if (sint.includes('falha') || sint.includes('erro')) {
+      contSintoma.falha++;
+    } else {
+      contSintoma.outros++;
+    }
+
+    const sol = (item.solucao || "").toLowerCase();
+    if (sol.includes('substituição') || sol.includes('substituir') || sol.includes('troca')) contAcao.substituicao++;
+    else if (sol.includes('reparo') || sol.includes('conserto') || sol.includes('recupera')) contAcao.reparo++;
+    else contAcao.ajuste++;
+
+    const eq = item.equipamento ? item.equipamento.trim() : 'Desconhecido';
+    contEquipamento[eq] = (contEquipamento[eq] || 0) + 1;
+  });
+
+  const topEquipamentos = Object.entries(contEquipamento)
+    .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
   return (
     <main className="min-h-screen bg-white text-black p-8">
       {/* BOTÕES DE CONTROLO (NÃO SAEM NO PDF) */}
-      <div className="print:hidden flex justify-between items-center mb-8 pb-4 border-b border-gray-300 max-w-4xl mx-auto">
+      <div className="print:hidden flex flex-wrap justify-between items-center mb-8 pb-4 border-b border-gray-300 max-w-4xl mx-auto gap-4">
         <Link
           href="/supervisor"
           className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg text-sm font-semibold transition"
         >
           ← Voltar ao Painel
         </Link>
-        <button
-          onClick={imprimirPDF}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow transition cursor-pointer"
-        >
-          🖨️ Descarregar / Imprimir PDF
-        </button>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => imprimirRelatorio('todos')}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg font-semibold shadow transition cursor-pointer text-sm"
+          >
+            📋 Imprimir Relatório Completo
+          </button>
+
+          <button
+            onClick={() => imprimirRelatorio('graficos')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold shadow transition cursor-pointer text-sm"
+          >
+            📊 Imprimir Relatório de Gráficos
+          </button>
+        </div>
       </div>
 
       {/* CONTEÚDO DO RELATÓRIO FORMATADO PARA IMPRESSÃO */}
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center border-b-2 border-black pb-4">
-          <h1 className="text-2xl font-bold uppercase tracking-wide">Relatório de Ocorrências e Soluções</h1>
-          <p className="text-sm text-gray-600 mt-1">Chão de Fábrica - Manutenção Industrial (Equipamentos Aprovados)</p>
+          <h1 className="text-2xl font-bold uppercase tracking-wide">
+            {modoImpressao === 'graficos' ? 'Relatório Executivo - Estatísticas de Manutenção' : 'Relatório de Ocorrências e Soluções'}
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">Chão de Fábrica - Manutenção Industrial</p>
           <p className="text-xs text-gray-500 mt-1">Data de Emissão: {new Date().toLocaleDateString('pt-BR')}</p>
         </div>
 
         {carregando ? (
           <p className="text-center text-gray-500 py-8">A carregar dados do relatório...</p>
         ) : falhas.length === 0 ? (
-          <p className="text-center text-gray-500 py-8">Nenhuma ocorrência aprovada registada.</p>
+          <p className="text-center text-gray-500 py-8">Nenhuma ocorrência registada na base de dados.</p>
         ) : (
           <>
-            {/* GRÁFICO DOS EQUIPAMENTOS MAIS CRÍTICOS (Oculto na impressão em PDF se preferir, ou visível como panorama) */}
-            <div className="bg-gray-50 border border-gray-300 p-6 rounded-lg space-y-3 print:border-gray-400">
-              <h2 className="text-base font-bold text-gray-800 uppercase tracking-wide">
-                📊 Top Equipamentos com Mais Falhas (Críticos)
-              </h2>
-              <div className="w-full h-64 pt-2">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dadosGrafico}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="name" stroke="#374151" fontSize={12} />
-                    <YAxis stroke="#374151" fontSize={12} allowDecimals={false} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#1f2937', color: '#fff', borderRadius: '8px', border: 'none' }} 
-                      itemStyle={{ color: '#60a5fa' }}
-                    />
-                    <Bar dataKey="falhas" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* LISTAGEM DETALHADA DAS OCORRÊNCIAS */}
-            <div className="space-y-6 pt-2">
-              <h2 className="text-base font-bold text-gray-800 uppercase tracking-wide border-b border-gray-300 pb-2">
-                Detalhe das Ocorrências Aprovadas
+            {/* SECÇÃO COM OS GRÁFICOS EM FORMATO DE BARRA AMPLO */}
+            <div className="space-y-6">
+              <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wide border-b border-gray-300 pb-2">
+                📊 Indicadores Gerais de Manutenção
               </h2>
 
-              {falhas.map((item, index) => (
-                <div key={item.id} className="border border-gray-400 p-4 rounded-lg space-y-2 break-inside-avoid bg-white">
-                  <div className="flex justify-between items-center font-bold border-b border-gray-300 pb-1 text-sm">
-                    <span>#{index + 1} - Equipamento: {item.equipamento}</span>
-                    <span className="text-xs text-gray-600">Registo: {new Date(item.criado_em).toLocaleDateString('pt-BR')}</span>
-                  </div>
-
-                  <div className="text-xs space-y-1">
-                    <p><strong>Sintoma:</strong> {item.sintoma}</p>
-                    <p><strong>Causa Raiz:</strong> {item.causa_raiz || 'Não informada'}</p>
-                    <p><strong>Solução Aplicada:</strong> {item.solucao}</p>
-                    {item.part_number && (
-                      <p><strong>Part Number / Material:</strong> <span className="font-mono">{item.part_number}</span></p>
+              <div className="space-y-6">
+                
+                {/* 1. TOP EQUIPAMENTOS */}
+                <div className="border border-gray-300 p-5 rounded-lg space-y-3 bg-gray-50/50 break-inside-avoid">
+                  <h3 className="text-xs font-bold text-blue-700 uppercase tracking-wider">
+                    🔧 Equipamentos com Mais Intervenções
+                  </h3>
+                  <div className="space-y-3">
+                    {topEquipamentos.length === 0 ? (
+                      <p className="text-xs text-gray-500 italic">Sem dados suficientes.</p>
+                    ) : (
+                      topEquipamentos.map(([nome, qtd], idx) => {
+                        const percentual = Math.round((qtd / totalGeral) * 100);
+                        return (
+                          <div key={idx} className="space-y-1">
+                            <div className="flex justify-between text-xs font-medium">
+                              <span className="text-gray-900">{nome}</span>
+                              <span className="text-blue-700 font-bold">{qtd} ocorrência(s) ({percentual}%)</span>
+                            </div>
+                            <div className="w-full bg-gray-200 h-3 rounded-full overflow-hidden">
+                              <div className="bg-blue-600 h-full rounded-full transition-all" style={{ width: `${Math.max(percentual, 5)}%` }}></div>
+                            </div>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </div>
-              ))}
+
+                {/* 2. OCORRÊNCIAS POR SINTOMA */}
+                <div className="border border-gray-300 p-5 rounded-lg space-y-3 bg-gray-50/50 break-inside-avoid">
+                  <h3 className="text-xs font-bold text-red-700 uppercase tracking-wider">
+                    ⚠️ Falhas com Maior Ocorrência (Sintomas)
+                  </h3>
+                  <div className="space-y-3 text-xs">
+                    {[
+                      { label: 'Vazamentos / Fugas', qtd: contSintoma.vazamento, cor: 'bg-red-600' },
+                      { label: 'Quebras / Trincas', qtd: contSintoma.quebra, cor: 'bg-orange-600' },
+                      { label: 'Vibração / Ruído', qtd: contSintoma.vibracao, cor: 'bg-yellow-600' },
+                      { label: 'Aquecimento', qtd: contSintoma.aquecimento, cor: 'bg-amber-700' },
+                      { label: 'Alarmes', qtd: contSintoma.alarme, cor: 'bg-purple-600' }, // Categoria de Alarme adicionada aqui
+                      { label: 'Falha Geral / Erro', qtd: contSintoma.falha, cor: 'bg-indigo-600' },
+                      { label: 'Outros', qtd: contSintoma.outros, cor: 'bg-gray-500' },
+                    ].map((item, idx) => {
+                      const percentual = Math.round((item.qtd / totalGeral) * 100);
+                      return (
+                        <div key={idx} className="space-y-1">
+                          <div className="flex justify-between font-medium">
+                            <span className="text-gray-900">{item.label}</span>
+                            <span className="font-bold text-black">{item.qtd} ocorrência(s) ({percentual}%)</span>
+                          </div>
+                          <div className="w-full bg-gray-200 h-3 rounded-full overflow-hidden">
+                            <div className={`${item.cor} h-full rounded-full transition-all`} style={{ width: `${Math.max(percentual, 3)}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. AÇÕES DE MANUTENÇÃO */}
+                <div className="border border-gray-300 p-5 rounded-lg space-y-3 bg-gray-50/50 break-inside-avoid">
+                  <h3 className="text-xs font-bold text-green-700 uppercase tracking-wider">
+                    🛠️ Tipos de Manutenção de Maior Frequência (Ações)
+                  </h3>
+                  <div className="space-y-3 text-xs">
+                    {[
+                      { label: 'Substituição de Peças', qtd: contAcao.substituicao, cor: 'bg-green-600' },
+                      { label: 'Reparo / Recuperação', qtd: contAcao.reparo, cor: 'bg-emerald-700' },
+                      { label: 'Ajuste / Calibragem', qtd: contAcao.ajuste, cor: 'bg-teal-700' },
+                    ].map((item, idx) => {
+                      const percentual = Math.round((item.qtd / totalGeral) * 100);
+                      return (
+                        <div key={idx} className="space-y-1">
+                          <div className="flex justify-between font-medium">
+                            <span className="text-gray-900">{item.label}</span>
+                            <span className="font-bold text-green-800">{item.qtd} ocorrência(s) ({percentual}%)</span>
+                          </div>
+                          <div className="w-full bg-gray-200 h-3 rounded-full overflow-hidden">
+                            <div className={`${item.cor} h-full rounded-full transition-all`} style={{ width: `${Math.max(percentual, 3)}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
             </div>
+
+            {/* LISTAGEM DETALHADA DAS OCORRÊNCIAS (APARECE APENAS NO RELATÓRIO COMPLETO) */}
+            {modoImpressao === 'todos' && (
+              <div className="space-y-6 pt-6">
+                <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wide border-b border-gray-300 pb-2">
+                  Detalhe de Todas as Ocorrências Registadas
+                </h2>
+
+                {falhas.map((item, index) => (
+                  <div key={item.id} className="border border-gray-400 p-4 rounded-lg space-y-2 break-inside-avoid bg-white">
+                    <div className="flex justify-between items-center font-bold border-b border-gray-300 pb-1 text-sm">
+                      <span>#{index + 1} - Equipamento: {item.equipamento}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${item.aprovado ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                          {item.aprovado ? 'Aprovado' : 'Pendente'}
+                        </span>
+                        <span className="text-xs text-gray-600">{new Date(item.criado_em).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs space-y-1">
+                      <p><strong>Sintoma:</strong> {item.sintoma}</p>
+                      <p><strong>Causa Raiz:</strong> {item.causa_raiz || 'Não informada'}</p>
+                      <p><strong>Solução Aplicada:</strong> {item.solucao}</p>
+                      {item.part_number && (
+                        <p><strong>Part Number / Material:</strong> <span className="font-mono">{item.part_number}</span></p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
