@@ -30,6 +30,7 @@ interface Equipamento {
 
 export default function PainelSupervisor() {
   const router = useRouter();
+
   const [verificando, setVerificando] = useState(true);
   const [autenticadoSupervisor, setAutenticadoSupervisor] = useState(false);
   const [pinInput, setPinInput] = useState('');
@@ -38,7 +39,7 @@ export default function PainelSupervisor() {
   const [carregando, setCarregando] = useState(true);
 
   // Estados para a Gestão de Equipamentos
-  const [listaEquipamentosSupervisor, setListaEquipamentosSupervisor] = Equipamento[] ? useState<Equipamento[]>([]) : useState<Equipamento[]>([]);
+  const [listaEquipamentosSupervisor, setListaEquipamentosSupervisor] = useState<Equipamento[]>([]);
   const [novoEquipamentoNome, setNovoEquipamentoNome] = useState('');
   const [carregandoEquipamentos, setCarregandoEquipamentos] = useState(false);
 
@@ -77,7 +78,7 @@ export default function PainelSupervisor() {
       setAutenticadoSupervisor(true);
       setErroPin('');
       carregarPendentes();
-      carregarEquipamentosSupervisor(); // Carrega os equipamentos ao entrar no painel
+      carregarEquipamentosSupervisor();
     } else {
       setErroPin('Senha de supervisor incorreta. Tente novamente.');
       setPinInput('');
@@ -100,7 +101,6 @@ export default function PainelSupervisor() {
     setCarregando(false);
   };
 
-  // Funções de Gestão de Equipamentos
   const carregarEquipamentosSupervisor = async () => {
     const { data, error } = await supabase
       .from('equipamentos')
@@ -133,23 +133,6 @@ export default function PainelSupervisor() {
     setCarregandoEquipamentos(false);
   };
 
-  const apagarEquipamento = async (id: string, nome: string) => {
-    if (!confirm(`Tem certeza de que deseja remover "${nome}" da lista oficial?`)) return;
-
-    const { error } = await supabase
-      .from('equipamentos')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      mostrarFeedback('Erro ao apagar equipamento: ' + error.message, 'erro');
-    } else {
-      mostrarFeedback('Equipamento removido com sucesso!', 'sucesso');
-      carregarEquipamentosSupervisor();
-    }
-  };
-
-  // Iniciar modo de edição para um item específico
   const iniciarEdicao = (item: Falha) => {
     setEditandoId(item.id);
     setEditEquipamento(item.equipamento);
@@ -333,11 +316,11 @@ export default function PainelSupervisor() {
           </div>
         )}
 
-        {/* SECÇÃO DE GESTÃO DE EQUIPAMENTOS */}
+        {/* SECÇÃO DE GESTÃO DE EQUIPAMENTOS (APENAS INSERÇÃO) */}
         <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 space-y-4 shadow-md">
           <div>
-            <h2 className="text-lg font-bold text-blue-400">Gestão de Equipamentos Oficiais</h2>
-            <p className="text-xs text-gray-400">Adicione novos equipamentos ou remova os existentes da lista global da aplicação</p>
+            <h2 className="text-lg font-bold text-blue-400">Adicionar Novo Equipamento Oficial</h2>
+            <p className="text-xs text-gray-400">Insira um novo equipamento para disponibilizá-lo na lista global da aplicação</p>
           </div>
 
           <form onSubmit={adicionarEquipamento} className="flex gap-3">
@@ -360,15 +343,8 @@ export default function PainelSupervisor() {
 
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-2 pt-2 border-t border-gray-700/60">
             {listaEquipamentosSupervisor.map((eq) => (
-              <div key={eq.id} className="flex justify-between items-center bg-gray-900 px-3 py-2 rounded border border-gray-700">
-                <span className="text-xs text-gray-200 font-medium truncate mr-2">{eq.nome}</span>
-                <button
-                  type="button"
-                  onClick={() => apagarEquipamento(eq.id, eq.nome)}
-                  className="text-red-400 hover:text-red-300 text-xs font-semibold px-2 py-1 bg-red-500/10 hover:bg-red-500/20 rounded transition cursor-pointer shrink-0"
-                >
-                  ✕
-                </button>
+              <div key={eq.id} className="bg-gray-900 px-3 py-2.5 rounded border border-gray-700 text-xs text-gray-200 font-medium truncate">
+                ⚙️ {eq.nome}
               </div>
             ))}
           </div>
