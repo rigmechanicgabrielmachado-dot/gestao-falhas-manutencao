@@ -38,7 +38,22 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                  });
+                });
+              }
+            `,
+          }}
+        />
+      </body>
     </html>
   );
 }
