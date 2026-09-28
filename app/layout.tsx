@@ -1,5 +1,7 @@
 import './globals.css';
+
 import type { Metadata } from 'next';
+
 import { Inter } from 'next/font/google';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -45,7 +47,29 @@ export default function RootLayout({
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                  navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                    // Força a verificação de atualizações do Service Worker sempre que a página abre
+                    registration.update();
+                    
+                    // Se houver um novo Service Worker à espera, força a ativação imediata
+                    if (registration.waiting) {
+                      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    }
+
+                    registration.onupdatefound = function() {
+                      var installingWorker = registration.installing;
+                      if (installingWorker) {
+                        installingWorker.onstatechange = function() {
+                          if (installingWorker.state === 'installed') {
+                            if (navigator.serviceWorker.controller) {
+                              // Nova versão detetada! Recarrega a página automaticamente para atualizar os dados
+                              window.location.reload();
+                            }
+                          }
+                        };
+                      }
+                    };
+                  }).catch(function(err) {
                     console.log('ServiceWorker registration failed: ', err);
                   });
                 });
