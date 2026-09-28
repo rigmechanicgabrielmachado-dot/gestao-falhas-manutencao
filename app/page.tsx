@@ -130,7 +130,7 @@ export default function Home() {
               Gestão de Falhas e Soluções
             </h1>
             <p className="text-gray-400 text-sm mt-1">
-              Equipamentos de Drilling - Manutenção Industrial (Aprovadas)
+              Equipamentos de Drilling - Manutenção Industrial
             </p>
           </div>
 
