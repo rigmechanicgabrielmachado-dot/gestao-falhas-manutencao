@@ -33,23 +33,54 @@ export default function Home() {
   const [equipamentoAberto, setEquipamentoAberto] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [listaEquipamentos, setListaEquipamentos] = useState<string[]>([]);
+  const [offlineMode, setOfflineMode] = useState(false);
 
   useEffect(() => {
     async function verificarSessao() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
-      } else {
-        setVerificando(false);
-        carregarFalhas();
-        carregarEquipamentosDoBanco();
+      // Verifica se há falhas guardadas localmente para exibir imediatamente se estiver sem rede
+      const falhasSalvas = localStorage.getItem('cache_falhas_aprovadas');
+      const equipamentosSalvos = localStorage.getItem('cache_equipamentos');
+
+      if (falhasSalvas) {
+        try {
+          setFalhas(JSON.parse(falhasSalvas));
+          setCarregando(false);
+        } catch (e) {
+          console.error('Erro ao ler cache local', e);
+        }
       }
+
+      if (equipamentosSalvos) {
+        try {
+          setListaEquipamentos(JSON.parse(equipamentosSalvos));
+        } catch (e) {
+          console.error('Erro ao ler cache de equipamentos', e);
+        }
+      }
+
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      // Se estiver offline mas tiver sessão guardada ou falhas em cache, permite navegar offline
+      if (!session && sessionError) {
+        if (!falhasSalvas) {
+          router.push('/login');
+          return;
+        } else {
+          setOfflineMode(true);
+        }
+      }
+
+      setVerificando(false);
+      
+      // Tenta atualizar com os dados mais recentes da nuvem
+      carregarFalhas();
+      carregarEquipamentosDoBanco();
     }
+
     verificarSessao();
   }, [router]);
 
   async function carregarFalhas() {
-    setCarregando(true);
     const { data, error } = await supabase
       .from('falhas')
       .select('*')
@@ -58,8 +89,12 @@ export default function Home() {
 
     if (error) {
       console.error('Erro ao buscar falhas:', error);
-    } else {
-      setFalhas(data || []);
+      setOfflineMode(true);
+    } else if (data) {
+      setFalhas(data);
+      // Guarda em cache local para acesso offline
+      localStorage.setItem('cache_falhas_aprovadas', JSON.stringify(data));
+      setOfflineMode(false);
     }
     setCarregando(false);
   }
@@ -73,8 +108,9 @@ export default function Home() {
     if (error) {
       console.error('Erro ao buscar equipamentos:', error);
     } else if (data) {
-      // CORREÇÃO APLICADA AQUI: (eq: any)
-      setListaEquipamentos(data.map((eq: any) => eq.nome));
+      const nomes = data.map((eq: any) => eq.nome);
+      setListaEquipamentos(nomes);
+      localStorage.setItem('cache_equipamentos', JSON.stringify(nomes));
     }
   }
 
@@ -123,6 +159,13 @@ export default function Home() {
     <main className="min-h-screen bg-gray-900 text-white p-4 sm:p-6">
       <div className="max-w-5xl mx-auto space-y-6">
 
+        {/* AVISO DE MODO OFFLINE */}
+        {offlineMode && (
+          <div className="bg-yellow-600/20 border border-yellow-500/50 text-yellow-300 px-4 py-2 rounded-lg text-xs flex justify-between items-center">
+            <span>⚠️ Sem ligação à internet. A consultar dados guardados localmente (Modo Offline).</span>
+          </div>
+        )}
+
         {/* CABEÇALHO */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
@@ -130,7 +173,7 @@ export default function Home() {
               Gestão de Falhas e Soluções
             </h1>
             <p className="text-gray-400 text-sm mt-1">
-              Equipamentos de Drilling - Manutenção Industrial
+              Equipamentos de Drilling - Manutenção Industrial (Aprovadas)
             </p>
           </div>
 
@@ -195,7 +238,7 @@ export default function Home() {
         </div>
 
         {/* CARREGANDO */}
-        {carregando && (
+        {carregando && falhas.length === 0 && (
           <div className="bg-gray-800 p-8 rounded-lg text-center text-gray-400">
             Carregando ocorrências...
           </div>
@@ -221,7 +264,7 @@ export default function Home() {
         )}
 
         {/* EQUIPAMENTOS */}
-        {!carregando && equipamentos.length > 0 && (
+        {equipamentos.length > 0 && (
           <div className="space-y-4">
             {equipamentos.map(([equipamento, lista]) => {
               const estaAberto = equipamentoAberto === equipamento;
