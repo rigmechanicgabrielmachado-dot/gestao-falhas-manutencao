@@ -14,6 +14,9 @@ export default function NovaFalha() {
   const [causaRaiz, setCausaRaiz] = useState('');
   const [solucao, setSolucao] = useState('');
   const [partNumber, setPartNumber] = useState('');
+  const [tipoParada, setTipoParada] = useState('');
+  const [falhaEm, setFalhaEm] = useState('');
+  const [retornoEm, setRetornoEm] = useState('');
   const [arquivoFoto, setArquivoFoto] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [sucesso, setSucesso] = useState(false); 
@@ -79,6 +82,9 @@ export default function NovaFalha() {
         causa_raiz: causaRaiz.trim(),
         solucao: solucao.trim(),
         part_number: partNumber.trim() || null,
+        tipo_parada: tipoParada || null,
+        falha_em: falhaEm ? new Date(falhaEm).toISOString() : null,
+        retorno_em: retornoEm ? new Date(retornoEm).toISOString() : null,
         foto_url: fotoUrlFinal || null,
         criado_por: emailUsuario,
         aprovado: false, // Vai para moderação do supervisor
@@ -118,6 +124,9 @@ export default function NovaFalha() {
                 setCausaRaiz('');
                 setSolucao('');
                 setPartNumber('');
+                setTipoParada('');
+                setFalhaEm('');
+                setRetornoEm('');
                 setArquivoFoto(null);
               }}
               className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 rounded-lg text-sm transition cursor-pointer"
@@ -176,6 +185,56 @@ export default function NovaFalha() {
               ))}
             </select>
           </div>
+
+          <div>
+            <label className="block text-xs uppercase text-blue-300 font-semibold mb-1">
+              Tipo de Parada (Opcional)
+            </label>
+            <select
+              value={tipoParada}
+              onChange={(e) => { setTipoParada(e.target.value); if (e.target.value === 'sem_parada') { setFalhaEm(''); setRetornoEm(''); } }}
+              className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer"
+            >
+              <option value="">Não informado</option>
+              <option value="nao_programada">Não programada — gera downtime</option>
+              <option value="programada">Programada — não gera downtime</option>
+              <option value="sem_parada">Sem parada do equipamento — não gera downtime</option>
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Se não souber classificar, deixe como “Não informado”. Apenas paradas não programadas com início e retorno preenchidos entram nos indicadores.
+            </p>
+          </div>
+
+          {tipoParada !== 'sem_parada' && (
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs uppercase text-orange-300 font-semibold mb-1">
+                {tipoParada === 'programada' ? 'Início da Intervenção (Opcional)' : 'Data/Hora da Falha (Opcional)'}
+              </label>
+              <input
+                type="datetime-local"
+                value={falhaEm}
+                onChange={(e) => setFalhaEm(e.target.value)}
+                className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase text-cyan-300 font-semibold mb-1">
+                Retorno à Operação (Opcional)
+              </label>
+              <input
+                type="datetime-local"
+                value={retornoEm}
+                min={falhaEm || undefined}
+                onChange={(e) => setRetornoEm(e.target.value)}
+                className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+          )}
+          {tipoParada !== 'sem_parada' && falhaEm && retornoEm && new Date(retornoEm) < new Date(falhaEm) && (
+            <p className="text-xs text-red-400">O retorno à operação não pode ser anterior ao início.</p>
+          )}
 
           <div>
             <label className="block text-xs uppercase text-red-400 font-semibold mb-1">
@@ -253,7 +312,7 @@ export default function NovaFalha() {
 
           <button
             type="submit"
-            disabled={enviando}
+            disabled={enviando || (!!falhaEm && !!retornoEm && new Date(retornoEm) < new Date(falhaEm))}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-900 text-white font-semibold py-3 rounded-lg transition cursor-pointer mt-4"
           >
             {enviando ? 'A enviar ocorrência e foto...' : 'Submeter Ocorrência'}

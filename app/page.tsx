@@ -33,6 +33,12 @@ foto_url?: string;
 
 aprovado: boolean;
 
+tipo_parada?: 'nao_programada' | 'programada' | 'sem_parada';
+
+falha_em?: string;
+
+retorno_em?: string;
+
 }
 
 
@@ -676,6 +682,21 @@ Solução Aplicada
 
 </div>
 
+
+{item.tipo_parada === 'nao_programada' && item.falha_em && (
+<div className="bg-gray-900 p-3 rounded border border-gray-700/50 text-xs text-gray-300">
+<strong className="text-cyan-400 block uppercase mb-1">Tempo de Parada</strong>
+<p>Falha: {new Date(item.falha_em).toLocaleString('pt-BR')}</p>
+{item.retorno_em ? (
+<p>Retorno: {new Date(item.retorno_em).toLocaleString('pt-BR')} · Downtime: {(() => {
+  const minutos = Math.max(0, Math.round((new Date(item.retorno_em).getTime() - new Date(item.falha_em).getTime()) / 60000));
+  const horas = Math.floor(minutos / 60);
+  const resto = minutos % 60;
+  return horas > 0 ? `${horas}h ${resto}min` : `${resto}min`;
+})()}</p>
+) : <p>Equipamento sem horário de retorno informado.</p>}
+</div>
+)}
 
 {item.part_number && (
 
