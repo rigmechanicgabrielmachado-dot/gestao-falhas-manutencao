@@ -3,11 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
-const supabaseUrl = 'https://tkbqnssxdfmdrqiastrj.supabase.co';
-const supabaseAnonKey = 'sb_publishable_Z6Bwn2w0rOE_nuGZrjDTKA_Bev3tqCI';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface Falha {
   id: string | number;
@@ -29,6 +26,19 @@ export default function RelatorioPDF() {
   useEffect(() => {
     async function carregarDados() {
       setCarregando(true);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      const { data: isSupervisor, error: roleError } = await supabase.rpc('is_supervisor');
+      if (roleError || !isSupervisor) {
+        router.push('/');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('falhas')
         .select('*')
@@ -42,7 +52,7 @@ export default function RelatorioPDF() {
       setCarregando(false);
     }
     carregarDados();
-  }, []);
+  }, [router]);
 
   const imprimirRelatorio = (tipo: 'todos' | 'graficos') => {
     setModoImpressao(tipo);

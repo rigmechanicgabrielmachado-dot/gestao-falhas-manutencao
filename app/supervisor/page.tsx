@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 
 import Link from 'next/link';
 
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
 
 const supabaseUrl = 'https://tkbqnssxdfmdrqiastrj.supabase.co';
@@ -122,7 +122,7 @@ setFeedback(null);
 
 useEffect(() => {
 
-async function verificarSessao() {
+async function verificarSessaoESupervisor() {
 
 const { data: { session } } = await supabase.auth.getSession();
 
@@ -130,40 +130,31 @@ if (!session) {
 
 router.push('/login');
 
-} else {
-
-setVerificando(false);
+return;
 
 }
 
+const { data: isSupervisor, error } = await supabase.rpc('is_supervisor');
+
+if (error || !isSupervisor) {
+
+router.push('/');
+
+return;
+
 }
-
-verificarSessao();
-
-}, [router]);
-
-
-const handleValidarPin = (e: React.FormEvent) => {
-
-e.preventDefault();
-
-if (pinInput === "218028") {
 
 setAutenticadoSupervisor(true);
 
-setErroPin('');
+setVerificando(false);
 
 carregarDadosPainel();
 
-} else {
-
-setErroPin('Senha de supervisor incorreta. Tente novamente.');
-
-setPinInput('');
-
 }
 
-};
+verificarSessaoESupervisor();
+
+}, [router]);
 
 
 const carregarDadosPainel = async () => {
@@ -454,114 +445,6 @@ return (
 <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
 
 <div className="text-center text-yellow-400">A verificar credenciais de acesso...</div>
-
-</main>
-
-);
-
-}
-
-
-if (!autenticadoSupervisor) {
-
-return (
-
-<main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
-
-<div className="bg-gray-800 border border-gray-700 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
-
-<div className="text-center space-y-2">
-
-<div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-yellow-500/10 text-yellow-400 mb-1 border border-yellow-500/20">
-
-🔒
-
-</div>
-
-<h1 className="text-xl font-bold text-yellow-400">Área Restrita do Supervisor</h1>
-
-<p className="text-sm text-gray-400">
-
-Introduza a palavra-passe de 6 dígitos para aceder ao painel de moderação.
-
-</p>
-
-</div>
-
-
-{erroPin && (
-
-<div className="bg-red-950/80 border border-red-800 text-red-300 p-3 rounded-lg text-xs text-center font-medium">
-
-{erroPin}
-
-</div>
-
-)}
-
-
-<form onSubmit={handleValidarPin} className="space-y-4">
-
-<div>
-
-<label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wider">
-
-Palavra-passe de Segurança
-
-</label>
-
-<input
-
-type="password"
-
-value={pinInput}
-
-onChange={(e) => setPinInput(e.target.value)}
-
-maxLength={6}
-
-autoFocus
-
-placeholder="••••••"
-
-className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-center tracking-widest text-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
-
-/>
-
-</div>
-
-
-<div className="flex gap-3 pt-2">
-
-<Link
-
-href="/"
-
-className="w-1/2 bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold py-2.5 rounded-lg text-center text-sm transition"
-
->
-
-Voltar
-
-</Link>
-
-<button
-
-type="submit"
-
-className="w-1/2 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold py-2.5 rounded-lg text-sm transition cursor-pointer"
-
->
-
-Confirmar
-
-</button>
-
-</div>
-
-</form>
-
-</div>
 
 </main>
 
