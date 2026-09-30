@@ -32,6 +32,8 @@ foto_url?: string;
 
 aprovado: boolean;
 
+tipo_parada?: 'nao_programada' | 'programada' | 'sem_parada';
+
 falha_em?: string;
 
 retorno_em?: string;
@@ -1214,11 +1216,15 @@ Salvar e Aprovar
 </div>
 
 
-{item.falha_em && (
+{item.tipo_parada && (
 <div className="bg-gray-900 p-3 rounded border border-gray-700 text-xs text-gray-300">
-<strong className="text-cyan-400 block text-xs uppercase mb-1">Tempo de Parada:</strong>
+<strong className="text-blue-400 block text-xs uppercase mb-1">Tipo de Parada:</strong>
+<p>{item.tipo_parada === 'nao_programada' ? 'Não programada — entra no downtime' : item.tipo_parada === 'programada' ? 'Programada — fora do downtime' : 'Sem parada — fora do downtime'}</p>
+{item.falha_em && <>
+<strong className="text-cyan-400 block text-xs uppercase mb-1">Período:</strong>
 <p>Falha: {new Date(item.falha_em).toLocaleString('pt-BR')}</p>
 {item.retorno_em ? <p>Retorno: {new Date(item.retorno_em).toLocaleString('pt-BR')}</p> : <p>Retorno ainda não informado.</p>}
+</>}
 </div>
 )}
 
