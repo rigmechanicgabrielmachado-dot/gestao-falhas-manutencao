@@ -6,17 +6,11 @@ import { useRouter } from 'next/navigation';
 
 import Link from 'next/link';
 
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
 import { APP_VERSION } from '@/lib/version';
 
 
-const supabaseUrl = 'https://tkbqnssxdfmdrqiastrj.supabase.co';
-
-const supabaseAnonKey = 'sb_publishable_Z6Bwn2w0rOE_nuGZrjDTKA_Bev3tqCI';
-
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 
 interface Falha {
@@ -118,9 +112,9 @@ console.error('Erro ao ler cache de equipamentos', e);
 const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
 
-if (!session && sessionError) {
+if (!session) {
 
-if (!falhasSalvas) {
+if (!falhasSalvas || !sessionError) {
 
 router.push('/login');
 
