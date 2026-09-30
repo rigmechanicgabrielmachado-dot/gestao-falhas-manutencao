@@ -71,6 +71,8 @@ const [falhasGerais, setFalhasGerais] = useState<Falha[]>([]); // Novo estado pa
 
 const [carregando, setCarregando] = useState(true);
 
+const [excluindoId, setExcluindoId] = useState<string | number | null>(null);
+
 
 // Estados para a Gestão de Equipamentos
 
@@ -423,6 +425,33 @@ mostrarFeedback('Ocorrência rejeitada e removida.', 'sucesso');
 carregarDadosPainel();
 
 }
+
+};
+
+
+const excluirOcorrencia = async (item: Falha) => {
+
+const confirmado = window.confirm(
+  `Excluir permanentemente esta ocorrência?\n\nEquipamento: ${item.equipamento}\nSintoma: ${item.sintoma}\n\nEsta ação não pode ser desfeita.`
+);
+
+if (!confirmado) return;
+
+setExcluindoId(item.id);
+
+const { error } = await supabase
+.from('falhas')
+.delete()
+.eq('id', item.id);
+
+if (error) {
+  mostrarFeedback('Erro ao excluir ocorrência: ' + error.message, 'erro');
+} else {
+  mostrarFeedback('Ocorrência excluída permanentemente.', 'sucesso');
+  carregarDadosPainel();
+}
+
+setExcluindoId(null);
 
 };
 
@@ -981,6 +1010,49 @@ className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py
 
 </div>
 
+</div>
+
+
+{/* GESTÃO DE TODAS AS OCORRÊNCIAS */}
+<div className="bg-gray-800 p-6 rounded-lg border border-gray-700 space-y-4 shadow-md">
+<div>
+<h2 className="text-lg font-bold text-red-400">🗑️ Gerenciar Ocorrências</h2>
+<p className="text-xs text-gray-400">Área exclusiva do supervisor. Permite excluir definitivamente registros aprovados ou pendentes.</p>
+</div>
+
+{carregando ? (
+<p className="text-sm text-gray-400">Carregando ocorrências...</p>
+) : falhasGerais.length === 0 ? (
+<p className="text-sm text-gray-400">Nenhuma ocorrência registrada.</p>
+) : (
+<div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+{[...falhasGerais]
+.sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime())
+.map((item) => (
+<div key={item.id} className="bg-gray-900 border border-gray-700 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+<div className="min-w-0">
+<div className="flex flex-wrap items-center gap-2">
+<span className="text-sm font-semibold text-blue-300">🔧 {item.equipamento}</span>
+<span className={`text-[10px] px-2 py-0.5 rounded ${item.aprovado ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300'}`}>
+{item.aprovado ? 'Aprovada' : 'Pendente'}
+</span>
+</div>
+<p className="text-xs text-gray-300 mt-1 break-words">{item.sintoma}</p>
+<p className="text-[10px] text-gray-500 mt-1">{new Date(item.criado_em).toLocaleString('pt-BR')}</p>
+</div>
+<button
+type="button"
+disabled={excluindoId === item.id}
+onClick={() => excluirOcorrencia(item)}
+className="bg-red-700 hover:bg-red-800 disabled:bg-red-950 disabled:text-gray-500 text-white px-4 py-2 rounded-lg text-xs font-semibold transition cursor-pointer flex-shrink-0"
+>
+{excluindoId === item.id ? 'Excluindo...' : '🗑️ Excluir'}
+</button>
+</div>
+))}
+</div>
+)}
+<p className="text-[11px] text-red-300">⚠️ A exclusão é permanente e altera imediatamente os indicadores e relatórios.</p>
 </div>
 
 
