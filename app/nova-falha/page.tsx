@@ -14,6 +14,7 @@ export default function NovaFalha() {
   const [causaRaiz, setCausaRaiz] = useState('');
   const [solucao, setSolucao] = useState('');
   const [partNumber, setPartNumber] = useState('');
+  const [tipoParada, setTipoParada] = useState('');
   const [falhaEm, setFalhaEm] = useState('');
   const [retornoEm, setRetornoEm] = useState('');
   const [arquivoFoto, setArquivoFoto] = useState<File | null>(null);
@@ -81,6 +82,7 @@ export default function NovaFalha() {
         causa_raiz: causaRaiz.trim(),
         solucao: solucao.trim(),
         part_number: partNumber.trim() || null,
+        tipo_parada: tipoParada || null,
         falha_em: falhaEm ? new Date(falhaEm).toISOString() : null,
         retorno_em: retornoEm ? new Date(retornoEm).toISOString() : null,
         foto_url: fotoUrlFinal || null,
@@ -122,6 +124,7 @@ export default function NovaFalha() {
                 setCausaRaiz('');
                 setSolucao('');
                 setPartNumber('');
+                setTipoParada('');
                 setFalhaEm('');
                 setRetornoEm('');
                 setArquivoFoto(null);
@@ -183,10 +186,31 @@ export default function NovaFalha() {
             </select>
           </div>
 
+          <div>
+            <label className="block text-xs uppercase text-blue-300 font-semibold mb-1">
+              Tipo de Parada *
+            </label>
+            <select
+              required
+              value={tipoParada}
+              onChange={(e) => { setTipoParada(e.target.value); if (e.target.value === 'sem_parada') { setFalhaEm(''); setRetornoEm(''); } }}
+              className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer"
+            >
+              <option value="" disabled>Selecione o tipo de parada...</option>
+              <option value="nao_programada">Não programada — gera downtime</option>
+              <option value="programada">Programada — não gera downtime</option>
+              <option value="sem_parada">Sem parada do equipamento — não gera downtime</option>
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Apenas paradas não programadas entram nos indicadores de downtime e MTTR.
+            </p>
+          </div>
+
+          {tipoParada !== 'sem_parada' && (
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs uppercase text-orange-300 font-semibold mb-1">
-                Data/Hora da Falha (Opcional)
+                {tipoParada === 'programada' ? 'Início da Intervenção (Opcional)' : 'Data/Hora da Falha (Opcional)'}
               </label>
               <input
                 type="datetime-local"
@@ -208,8 +232,9 @@ export default function NovaFalha() {
               />
             </div>
           </div>
-          {falhaEm && retornoEm && new Date(retornoEm) < new Date(falhaEm) && (
-            <p className="text-xs text-red-400">O retorno à operação não pode ser anterior à falha.</p>
+          )}
+          {tipoParada !== 'sem_parada' && falhaEm && retornoEm && new Date(retornoEm) < new Date(falhaEm) && (
+            <p className="text-xs text-red-400">O retorno à operação não pode ser anterior ao início.</p>
           )}
 
           <div>
