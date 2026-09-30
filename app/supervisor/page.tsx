@@ -10,14 +10,6 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
 
-const supabaseUrl = 'https://tkbqnssxdfmdrqiastrj.supabase.co';
-
-const supabaseAnonKey = 'sb_publishable_Z6Bwn2w0rOE_nuGZrjDTKA_Bev3tqCI';
-
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-
 interface Falha {
 
 id: string | number;
