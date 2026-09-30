@@ -33,6 +33,8 @@ foto_url?: string;
 
 aprovado: boolean;
 
+tipo_parada?: 'nao_programada' | 'programada' | 'sem_parada';
+
 falha_em?: string;
 
 retorno_em?: string;
@@ -681,7 +683,7 @@ Solução Aplicada
 </div>
 
 
-{item.falha_em && (
+{item.tipo_parada === 'nao_programada' && item.falha_em && (
 <div className="bg-gray-900 p-3 rounded border border-gray-700/50 text-xs text-gray-300">
 <strong className="text-cyan-400 block uppercase mb-1">Tempo de Parada</strong>
 <p>Falha: {new Date(item.falha_em).toLocaleString('pt-BR')}</p>
