@@ -14,6 +14,8 @@ export default function NovaFalha() {
   const [causaRaiz, setCausaRaiz] = useState('');
   const [solucao, setSolucao] = useState('');
   const [partNumber, setPartNumber] = useState('');
+  const [falhaEm, setFalhaEm] = useState('');
+  const [retornoEm, setRetornoEm] = useState('');
   const [arquivoFoto, setArquivoFoto] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [sucesso, setSucesso] = useState(false); 
@@ -79,6 +81,8 @@ export default function NovaFalha() {
         causa_raiz: causaRaiz.trim(),
         solucao: solucao.trim(),
         part_number: partNumber.trim() || null,
+        falha_em: falhaEm ? new Date(falhaEm).toISOString() : null,
+        retorno_em: retornoEm ? new Date(retornoEm).toISOString() : null,
         foto_url: fotoUrlFinal || null,
         criado_por: emailUsuario,
         aprovado: false, // Vai para moderação do supervisor
@@ -118,6 +122,8 @@ export default function NovaFalha() {
                 setCausaRaiz('');
                 setSolucao('');
                 setPartNumber('');
+                setFalhaEm('');
+                setRetornoEm('');
                 setArquivoFoto(null);
               }}
               className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 rounded-lg text-sm transition cursor-pointer"
@@ -176,6 +182,35 @@ export default function NovaFalha() {
               ))}
             </select>
           </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs uppercase text-orange-300 font-semibold mb-1">
+                Data/Hora da Falha (Opcional)
+              </label>
+              <input
+                type="datetime-local"
+                value={falhaEm}
+                onChange={(e) => setFalhaEm(e.target.value)}
+                className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase text-cyan-300 font-semibold mb-1">
+                Retorno à Operação (Opcional)
+              </label>
+              <input
+                type="datetime-local"
+                value={retornoEm}
+                min={falhaEm || undefined}
+                onChange={(e) => setRetornoEm(e.target.value)}
+                className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+          {falhaEm && retornoEm && new Date(retornoEm) < new Date(falhaEm) && (
+            <p className="text-xs text-red-400">O retorno à operação não pode ser anterior à falha.</p>
+          )}
 
           <div>
             <label className="block text-xs uppercase text-red-400 font-semibold mb-1">
@@ -253,7 +288,7 @@ export default function NovaFalha() {
 
           <button
             type="submit"
-            disabled={enviando}
+            disabled={enviando || (!!falhaEm && !!retornoEm && new Date(retornoEm) < new Date(falhaEm))}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-900 text-white font-semibold py-3 rounded-lg transition cursor-pointer mt-4"
           >
             {enviando ? 'A enviar ocorrência e foto...' : 'Submeter Ocorrência'}
