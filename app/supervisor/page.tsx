@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 
 import Link from 'next/link';
 
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
 
 const supabaseUrl = 'https://tkbqnssxdfmdrqiastrj.supabase.co';
