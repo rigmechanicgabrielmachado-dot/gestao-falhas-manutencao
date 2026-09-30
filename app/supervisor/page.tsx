@@ -32,6 +32,10 @@ foto_url?: string;
 
 aprovado: boolean;
 
+falha_em?: string;
+
+retorno_em?: string;
+
 }
 
 
@@ -1209,6 +1213,14 @@ Salvar e Aprovar
 
 </div>
 
+
+{item.falha_em && (
+<div className="bg-gray-900 p-3 rounded border border-gray-700 text-xs text-gray-300">
+<strong className="text-cyan-400 block text-xs uppercase mb-1">Tempo de Parada:</strong>
+<p>Falha: {new Date(item.falha_em).toLocaleString('pt-BR')}</p>
+{item.retorno_em ? <p>Retorno: {new Date(item.retorno_em).toLocaleString('pt-BR')}</p> : <p>Retorno ainda não informado.</p>}
+</div>
+)}
 
 {item.part_number && (
 
