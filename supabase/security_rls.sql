@@ -1,6 +1,6 @@
 -- Segurança do Gestão de Falhas - Manutenção
 -- Execute no SQL Editor do Supabase somente após revisar o e-mail do supervisor.
--- Troque SUPERVISOR_EMAIL_AQUI pelo e-mail real da conta supervisora.
+-- Troque gabrielmachado_91@outlook.com pelo e-mail real da conta supervisora.
 
 create or replace function public.is_supervisor()
 returns boolean
@@ -13,7 +13,7 @@ as $$
     select 1
     from auth.users
     where id = auth.uid()
-      and lower(email) = lower('SUPERVISOR_EMAIL_AQUI')
+      and lower(email) = lower('gabrielmachado_91@outlook.com')
   );
 $$;
 
