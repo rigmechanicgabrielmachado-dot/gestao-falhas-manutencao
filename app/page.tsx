@@ -237,66 +237,65 @@ const compartilharApp = async () => {
 };
 
 
-const termo = busca.toLowerCase().trim();
+const normalizar = (texto?: string) =>
+  (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
+const termo = normalizar(busca);
+const palavrasBusca = termo.split(/\s+/).filter(Boolean);
 
-const falhasFiltradas = falhas.filter((item) => {
+const pontuarFalha = (item: Falha) => {
+  if (!palavrasBusca.length) return 0;
+  const campos = [
+    { texto: normalizar(item.sintoma), peso: 6 },
+    { texto: normalizar(item.equipamento), peso: 5 },
+    { texto: normalizar(item.causa_raiz), peso: 4 },
+    { texto: normalizar(item.solucao), peso: 3 },
+    { texto: normalizar(item.part_number), peso: 2 },
+  ];
+  let pontos = 0;
+  palavrasBusca.forEach(palavra => campos.forEach(campo => {
+    if (campo.texto.includes(palavra)) pontos += campo.peso;
+  }));
+  if (campos.some(campo => campo.texto.includes(termo))) pontos += 8;
+  return pontos;
+};
 
-if (filtroEquipamento && item.equipamento !== filtroEquipamento) {
+const falhasFiltradas = falhas
+  .filter(item => !filtroEquipamento || item.equipamento === filtroEquipamento)
+  .map(item => ({ item, relevancia: pontuarFalha(item) }))
+  .filter(({ relevancia }) => !termo || relevancia > 0)
+  .sort((a, b) => termo ? b.relevancia - a.relevancia : new Date(b.item.criado_em).getTime() - new Date(a.item.criado_em).getTime())
+  .map(({ item }) => item);
 
-return false;
+const casosSemelhantes = (atual: Falha) => falhas
+  .filter(f => f.id !== atual.id)
+  .map(f => {
+    let pontos = normalizar(f.equipamento) === normalizar(atual.equipamento) ? 6 : 0;
+    normalizar(atual.sintoma).split(/\s+/).filter(p => p.length > 3).forEach(p => {
+      if (normalizar(f.sintoma).includes(p)) pontos += 2;
+    });
+    return { falha: f, pontos };
+  })
+  .filter(x => x.pontos > 2)
+  .sort((a, b) => b.pontos - a.pontos)
+  .slice(0, 3)
+  .map(x => x.falha);
 
-}
+const falhasPorEquipamento = falhasFiltradas.reduce((acc, falha) => {
+  const equipamento = falha.equipamento?.trim() || 'Outros';
+  if (!acc[equipamento]) acc[equipamento] = [];
+  acc[equipamento].push(falha);
+  return acc;
+}, {} as Record<string, Falha[]>);
 
-if (!termo) return true;
-
-
-return (
-
-item.equipamento?.toLowerCase().includes(termo) ||
-
-item.sintoma?.toLowerCase().includes(termo) ||
-
-item.causa_raiz?.toLowerCase().includes(termo) ||
-
-item.solucao?.toLowerCase().includes(termo) ||
-
-item.part_number?.toLowerCase().includes(termo)
-
-);
-
+const equipamentos = Object.entries(falhasPorEquipamento).sort(([a], [b]) => {
+  if (termo) {
+    const melhorA = Math.max(...falhasPorEquipamento[a].map(pontuarFalha));
+    const melhorB = Math.max(...falhasPorEquipamento[b].map(pontuarFalha));
+    if (melhorA !== melhorB) return melhorB - melhorA;
+  }
+  return a.localeCompare(b, 'pt-BR');
 });
-
-
-const falhasPorEquipamento = falhasFiltradas.reduce(
-
-(acc, falha) => {
-
-const equipamento = falha.equipamento?.trim() || 'Outros';
-
-if (!acc[equipamento]) {
-
-acc[equipamento] = [];
-
-}
-
-acc[equipamento].push(falha);
-
-return acc;
-
-},
-
-{} as Record<string, Falha[]>
-
-);
-
-
-const equipamentos = Object.entries(falhasPorEquipamento).sort(
-
-([a], [b]) => a.localeCompare(b, 'pt-BR')
-
-);
-
 
 if (verificando) {
 
@@ -407,7 +406,7 @@ Equipamentos de Drilling - Manutenção Industrial (Aprovadas)
 
 type="text"
 
-placeholder="Pesquisar sintoma, causa, solução ou part number..."
+placeholder="Descreva o problema: equipamento, sintoma, causa, solução ou part number..."
 
 value={busca}
 
@@ -471,7 +470,7 @@ className="w-full bg-gray-900 border border-gray-700 text-white p-3 rounded-lg t
 
 <span>💡 Dica: Consulte aqui antes de registrar para verificar se o problema já foi solucionado.</span>
 
-<span>{falhasFiltradas.length} ocorrência(s) encontrada(s)</span>
+<span>{termo ? `🔎 ${falhasFiltradas.length} solução(ões) relacionada(s)` : `${falhasFiltradas.length} ocorrência(s) encontrada(s)`}</span>
 
 </div>
 
@@ -747,6 +746,22 @@ className="w-32 h-32 rounded-lg object-cover border border-gray-700 hover:opacit
 
 )}
 
+
+{(() => {
+const semelhantes = casosSemelhantes(item);
+return semelhantes.length > 0 ? (
+<div className="bg-blue-950/30 border border-blue-900/60 rounded-lg p-3">
+<strong className="text-blue-300 block text-xs uppercase mb-2">🔗 Casos semelhantes</strong>
+<div className="space-y-1.5">
+{semelhantes.map(caso => (
+<button key={caso.id} type="button" onClick={() => { setBusca(caso.sintoma); setFiltroEquipamento(caso.equipamento); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="block w-full text-left text-xs text-gray-300 hover:text-white hover:bg-blue-900/30 rounded p-2 transition">
+<span className="font-semibold text-blue-300">{caso.equipamento}</span> — {caso.sintoma}
+</button>
+))}
+</div>
+</div>
+) : null;
+})()}
 
 <div className="text-right text-xs text-gray-500 pt-2 border-t border-gray-700">
 
