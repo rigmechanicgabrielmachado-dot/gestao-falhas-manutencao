@@ -188,21 +188,20 @@ export default function NovaFalha() {
 
           <div>
             <label className="block text-xs uppercase text-blue-300 font-semibold mb-1">
-              Tipo de Parada *
+              Tipo de Parada (Opcional)
             </label>
             <select
-              required
               value={tipoParada}
               onChange={(e) => { setTipoParada(e.target.value); if (e.target.value === 'sem_parada') { setFalhaEm(''); setRetornoEm(''); } }}
               className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer"
             >
-              <option value="" disabled>Selecione o tipo de parada...</option>
+              <option value="">Não informado</option>
               <option value="nao_programada">Não programada — gera downtime</option>
               <option value="programada">Programada — não gera downtime</option>
               <option value="sem_parada">Sem parada do equipamento — não gera downtime</option>
             </select>
             <p className="text-xs text-gray-400 mt-1">
-              Apenas paradas não programadas entram nos indicadores de downtime e MTTR.
+              Se não souber classificar, deixe como “Não informado”. Apenas paradas não programadas com início e retorno preenchidos entram nos indicadores.
             </p>
           </div>
 
