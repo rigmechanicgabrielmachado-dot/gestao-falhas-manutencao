@@ -26,6 +26,19 @@ export default function RelatorioPDF() {
   useEffect(() => {
     async function carregarDados() {
       setCarregando(true);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      const { data: isSupervisor, error: roleError } = await supabase.rpc('is_supervisor');
+      if (roleError || !isSupervisor) {
+        router.push('/');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('falhas')
         .select('*')
@@ -39,7 +52,7 @@ export default function RelatorioPDF() {
       setCarregando(false);
     }
     carregarDados();
-  }, []);
+  }, [router]);
 
   const imprimirRelatorio = (tipo: 'todos' | 'graficos') => {
     setModoImpressao(tipo);
