@@ -15,6 +15,8 @@ interface Falha {
   part_number?: string;
   criado_em: string;
   aprovado: boolean;
+  falha_em?: string;
+  retorno_em?: string;
 }
 
 export default function RelatorioPDF() {
@@ -62,6 +64,10 @@ export default function RelatorioPDF() {
   };
 
   const totalGeral = falhas.length || 1;
+  const falhasComDowntime = falhas.filter(item => item.falha_em && item.retorno_em);
+  const downtimeTotalMin = falhasComDowntime.reduce((total, item) => total + Math.max(0, Math.round((new Date(item.retorno_em!).getTime() - new Date(item.falha_em!).getTime()) / 60000)), 0);
+  const mttrMin = falhasComDowntime.length ? Math.round(downtimeTotalMin / falhasComDowntime.length) : 0;
+  const formatarDuracao = (minutos: number) => { const h = Math.floor(minutos / 60); const m = minutos % 60; return h > 0 ? `${h}h ${m}min` : `${m}min`; };
 
   let contSintoma = { vazamento: 0, quebra: 0, vibracao: 0, aquecimento: 0, falha: 0, alarme: 0, outros: 0 };
   let contAcao = { substituicao: 0, reparo: 0, ajuste: 0 };
@@ -151,7 +157,21 @@ export default function RelatorioPDF() {
               </h2>
 
               <div className="space-y-6">
-                
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div className="border border-gray-300 p-4 rounded-lg bg-gray-50 break-inside-avoid">
+                  <div className="text-xs uppercase text-gray-500 font-semibold">Ocorrências com downtime</div>
+                  <div className="text-2xl font-bold">{falhasComDowntime.length}</div>
+                </div>
+                <div className="border border-gray-300 p-4 rounded-lg bg-gray-50 break-inside-avoid">
+                  <div className="text-xs uppercase text-gray-500 font-semibold">Downtime acumulado</div>
+                  <div className="text-2xl font-bold">{formatarDuracao(downtimeTotalMin)}</div>
+                </div>
+                <div className="border border-gray-300 p-4 rounded-lg bg-gray-50 break-inside-avoid">
+                  <div className="text-xs uppercase text-gray-500 font-semibold">MTTR médio</div>
+                  <div className="text-2xl font-bold">{falhasComDowntime.length ? formatarDuracao(mttrMin) : 'Sem dados'}</div>
+                </div>
+              </div>
+
                 {/* 1. TOP EQUIPAMENTOS */}
                 <div className="border border-gray-300 p-5 rounded-lg space-y-3 bg-gray-50/50 break-inside-avoid">
                   <h3 className="text-xs font-bold text-blue-700 uppercase tracking-wider">
@@ -263,6 +283,9 @@ export default function RelatorioPDF() {
                       <p><strong>Sintoma:</strong> {item.sintoma}</p>
                       <p><strong>Causa Raiz:</strong> {item.causa_raiz || 'Não informada'}</p>
                       <p><strong>Solução Aplicada:</strong> {item.solucao}</p>
+                      {item.falha_em && <p><strong>Falha:</strong> {new Date(item.falha_em).toLocaleString('pt-BR')}</p>}
+                      {item.retorno_em && <p><strong>Retorno:</strong> {new Date(item.retorno_em).toLocaleString('pt-BR')}</p>}
+                      {item.falha_em && item.retorno_em && <p><strong>Downtime:</strong> {formatarDuracao(Math.max(0, Math.round((new Date(item.retorno_em).getTime() - new Date(item.falha_em).getTime()) / 60000)))}</p>}
                       {item.part_number && (
                         <p><strong>Part Number / Material:</strong> <span className="font-mono">{item.part_number}</span></p>
                       )}
