@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -25,6 +25,9 @@ export default function RelatorioPDF() {
   const [falhas, setFalhas] = useState<Falha[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [modoImpressao, setModoImpressao] = useState<'todos' | 'graficos'>('todos');
+  const [periodo, setPeriodo] = useState('todos');
+  const [equipamentoFiltro, setEquipamentoFiltro] = useState('todos');
+  const [tipoFiltro, setTipoFiltro] = useState('todos');
 
   useEffect(() => {
     async function carregarDados() {
@@ -64,48 +67,59 @@ export default function RelatorioPDF() {
     }, 100);
   };
 
-  const totalGeral = falhas.length || 1;
-  const falhasComDowntime = falhas.filter(item => item.tipo_parada === 'nao_programada' && item.falha_em && item.retorno_em);
+  const equipamentosDisponiveis = useMemo(() => Array.from(new Set(falhas.map(f => f.equipamento?.trim()).filter(Boolean))).sort(), [falhas]);
+  const falhasFiltradas = useMemo(() => falhas.filter(item => {
+    if (equipamentoFiltro !== 'todos' && item.equipamento?.trim() !== equipamentoFiltro) return false;
+    if (tipoFiltro !== 'todos' && (item.tipo_parada || 'nao_informado') !== tipoFiltro) return false;
+    if (periodo !== 'todos') {
+      const limite = new Date();
+      limite.setDate(limite.getDate() - Number(periodo));
+      if (new Date(item.criado_em) < limite) return false;
+    }
+    return true;
+  }), [falhas, periodo, equipamentoFiltro, tipoFiltro]);
+
+  const totalGeral = falhasFiltradas.length || 1;
+  const naoProgramadas = falhasFiltradas.filter(item => item.tipo_parada === 'nao_programada');
+  const falhasComDowntime = falhasFiltradas.filter(item => item.tipo_parada === 'nao_programada' && item.falha_em && item.retorno_em);
   const downtimeTotalMin = falhasComDowntime.reduce((total, item) => total + Math.max(0, Math.round((new Date(item.retorno_em!).getTime() - new Date(item.falha_em!).getTime()) / 60000)), 0);
   const mttrMin = falhasComDowntime.length ? Math.round(downtimeTotalMin / falhasComDowntime.length) : 0;
-  const formatarDuracao = (minutos: number) => { const h = Math.floor(minutos / 60); const m = minutos % 60; return h > 0 ? `${h}h ${m}min` : `${m}min`; };
+  const formatarDuracao = (minutos: number) => { const h = Math.floor(minutos / 60); const m = minutos % 60; return `${h}h ${String(m).padStart(2, '0')}min`; };
 
   let contSintoma = { vazamento: 0, quebra: 0, vibracao: 0, aquecimento: 0, falha: 0, alarme: 0, outros: 0 };
   let contAcao = { substituicao: 0, reparo: 0, ajuste: 0 };
-  let contEquipamento: { [key: string]: number } = {};
+  let contEquipamento: { [key: string]: { ocorrencias: number; naoProgramadas: number; downtime: number; comTempo: number } } = {};
 
-  falhas.forEach(item => {
-    const sint = (item.sintoma || "").toLowerCase();
-    
-    // CORREÇÃO APLICADA AQUI: Adicionada a verificação da palavra 'alarme'
-    if (sint.includes('vazamento') || sint.includes('fuga')) {
-      contSintoma.vazamento++;
-    } else if (sint.includes('quebra') || sint.includes('trinca') || sint.includes('ruptura')) {
-      contSintoma.quebra++;
-    } else if (sint.includes('vibra') || sint.includes('ruído') || sint.includes('barulh')) {
-      contSintoma.vibracao++;
-    } else if (sint.includes('aqueciment') || sint.includes('temperatura')) {
-      contSintoma.aquecimento++;
-    } else if (sint.includes('alarme')) {
-      contSintoma.alarme++;
-    } else if (sint.includes('falha') || sint.includes('erro')) {
-      contSintoma.falha++;
-    } else {
-      contSintoma.outros++;
-    }
+  falhasFiltradas.forEach(item => {
+    const sint = (item.sintoma || '').toLowerCase();
+    if (sint.includes('vazamento') || sint.includes('fuga')) contSintoma.vazamento++;
+    else if (sint.includes('quebra') || sint.includes('trinca') || sint.includes('ruptura')) contSintoma.quebra++;
+    else if (sint.includes('vibra') || sint.includes('ruído') || sint.includes('barulh')) contSintoma.vibracao++;
+    else if (sint.includes('aqueciment') || sint.includes('temperatura')) contSintoma.aquecimento++;
+    else if (sint.includes('alarme') || sint.includes('aviso') || sint.includes('warning')) contSintoma.alarme++;
+    else if (sint.includes('falha') || sint.includes('erro')) contSintoma.falha++;
+    else contSintoma.outros++;
 
-    const sol = (item.solucao || "").toLowerCase();
+    const sol = (item.solucao || '').toLowerCase();
     if (sol.includes('substituição') || sol.includes('substituir') || sol.includes('troca')) contAcao.substituicao++;
     else if (sol.includes('reparo') || sol.includes('conserto') || sol.includes('recupera')) contAcao.reparo++;
     else contAcao.ajuste++;
 
     const eq = item.equipamento ? item.equipamento.trim() : 'Desconhecido';
-    contEquipamento[eq] = (contEquipamento[eq] || 0) + 1;
+    contEquipamento[eq] ??= { ocorrencias: 0, naoProgramadas: 0, downtime: 0, comTempo: 0 };
+    contEquipamento[eq].ocorrencias++;
+    if (item.tipo_parada === 'nao_programada') contEquipamento[eq].naoProgramadas++;
+    if (item.tipo_parada === 'nao_programada' && item.falha_em && item.retorno_em) {
+      const min = Math.max(0, Math.round((new Date(item.retorno_em).getTime() - new Date(item.falha_em).getTime()) / 60000));
+      contEquipamento[eq].downtime += min;
+      contEquipamento[eq].comTempo++;
+    }
   });
 
-  const topEquipamentos = Object.entries(contEquipamento)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+  const rankingEquipamentos = Object.entries(contEquipamento).map(([nome, v]) => ({
+    nome, ...v, mttr: v.comTempo ? Math.round(v.downtime / v.comTempo) : 0
+  })).sort((a, b) => b.ocorrencias - a.ocorrencias);
+  const topEquipamentos = rankingEquipamentos.slice(0, 5).map(item => [item.nome, item.ocorrencias] as [string, number]);
 
   return (
     <main className="min-h-screen bg-white text-black p-8">
@@ -133,6 +147,11 @@ export default function RelatorioPDF() {
             📊 Imprimir Relatório de Gráficos
           </button>
         </div>
+        <div className="print:hidden grid sm:grid-cols-3 gap-2 w-full mt-3">
+          <select value={periodo} onChange={e => setPeriodo(e.target.value)} className="border border-gray-300 rounded-lg p-2 text-sm"><option value="todos">Todo o período</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 3 meses</option><option value="180">Últimos 6 meses</option><option value="365">Último ano</option></select>
+          <select value={equipamentoFiltro} onChange={e => setEquipamentoFiltro(e.target.value)} className="border border-gray-300 rounded-lg p-2 text-sm"><option value="todos">Todos os equipamentos</option>{equipamentosDisponiveis.map(e => <option key={e} value={e}>{e}</option>)}</select>
+          <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value)} className="border border-gray-300 rounded-lg p-2 text-sm"><option value="todos">Todos os tipos de parada</option><option value="nao_programada">Não programada</option><option value="programada">Programada</option><option value="sem_parada">Sem parada</option><option value="nao_informado">Não informado</option></select>
+        </div>
       </div>
 
       {/* CONTEÚDO DO RELATÓRIO FORMATADO PARA IMPRESSÃO */}
@@ -147,8 +166,8 @@ export default function RelatorioPDF() {
 
         {carregando ? (
           <p className="text-center text-gray-500 py-8">A carregar dados do relatório...</p>
-        ) : falhas.length === 0 ? (
-          <p className="text-center text-gray-500 py-8">Nenhuma ocorrência registada na base de dados.</p>
+        ) : falhasFiltradas.length === 0 ? (
+          <p className="text-center text-gray-500 py-8">Nenhuma ocorrência encontrada para os filtros selecionados.</p>
         ) : (
           <>
             {/* SECÇÃO COM OS GRÁFICOS EM FORMATO DE BARRA AMPLO */}
@@ -158,20 +177,13 @@ export default function RelatorioPDF() {
               </h2>
 
               <div className="space-y-6">
-              <div className="grid sm:grid-cols-3 gap-3">
-                <div className="border border-gray-300 p-4 rounded-lg bg-gray-50 break-inside-avoid">
-                  <div className="text-xs uppercase text-gray-500 font-semibold">Ocorrências com downtime</div>
-                  <div className="text-2xl font-bold">{falhasComDowntime.length}</div>
-                </div>
-                <div className="border border-gray-300 p-4 rounded-lg bg-gray-50 break-inside-avoid">
-                  <div className="text-xs uppercase text-gray-500 font-semibold">Downtime acumulado</div>
-                  <div className="text-2xl font-bold">{formatarDuracao(downtimeTotalMin)}</div>
-                </div>
-                <div className="border border-gray-300 p-4 rounded-lg bg-gray-50 break-inside-avoid">
-                  <div className="text-xs uppercase text-gray-500 font-semibold">MTTR médio</div>
-                  <div className="text-2xl font-bold">{falhasComDowntime.length ? formatarDuracao(mttrMin) : 'Sem dados'}</div>
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="border-2 border-blue-200 p-4 rounded-lg bg-blue-50 break-inside-avoid"><div className="text-xs uppercase text-blue-700 font-semibold">Ocorrências</div><div className="text-2xl font-bold text-blue-900">{falhasFiltradas.length}</div></div>
+                <div className="border-2 border-orange-200 p-4 rounded-lg bg-orange-50 break-inside-avoid"><div className="text-xs uppercase text-orange-700 font-semibold">Não programadas</div><div className="text-2xl font-bold text-orange-900">{naoProgramadas.length}</div></div>
+                <div className="border-2 border-red-200 p-4 rounded-lg bg-red-50 break-inside-avoid"><div className="text-xs uppercase text-red-700 font-semibold">Downtime total</div><div className="text-2xl font-bold text-red-900">{formatarDuracao(downtimeTotalMin)}</div></div>
+                <div className="border-2 border-emerald-200 p-4 rounded-lg bg-emerald-50 break-inside-avoid"><div className="text-xs uppercase text-emerald-700 font-semibold">MTTR</div><div className="text-2xl font-bold text-emerald-900">{falhasComDowntime.length ? formatarDuracao(mttrMin) : 'Sem dados'}</div></div>
               </div>
+              <p className="text-[10px] text-gray-500">Downtime e MTTR consideram somente paradas não programadas com início e retorno preenchidos.</p>
 
                 {/* 1. TOP EQUIPAMENTOS */}
                 <div className="border border-gray-300 p-5 rounded-lg space-y-3 bg-gray-50/50 break-inside-avoid">
@@ -198,6 +210,11 @@ export default function RelatorioPDF() {
                       })
                     )}
                   </div>
+                </div>
+
+                <div className="border border-gray-300 p-5 rounded-lg bg-white break-inside-avoid">
+                  <h3 className="text-xs font-bold text-gray-800 uppercase mb-3">🏆 Ranking de Equipamentos</h3>
+                  <table className="w-full text-xs border-collapse"><thead><tr><th className="text-left p-2 bg-gray-200">Equipamento</th><th className="p-2 bg-blue-100 text-blue-800">Ocorrências</th><th className="p-2 bg-orange-100 text-orange-800">Não programadas</th><th className="p-2 bg-red-100 text-red-800">Downtime</th><th className="p-2 bg-emerald-100 text-emerald-800">MTTR</th></tr></thead><tbody>{rankingEquipamentos.map(r => <tr key={r.nome} className="border-b border-gray-200"><td className="p-2 font-semibold">{r.nome}</td><td className="p-2 text-center text-blue-800">{r.ocorrencias}</td><td className="p-2 text-center text-orange-800">{r.naoProgramadas}</td><td className="p-2 text-center text-red-800">{formatarDuracao(r.downtime)}</td><td className="p-2 text-center text-emerald-800">{formatarDuracao(r.mttr)}</td></tr>)}</tbody></table>
                 </div>
 
                 {/* 2. OCORRÊNCIAS POR SINTOMA */}
@@ -268,7 +285,7 @@ export default function RelatorioPDF() {
                   Detalhe de Todas as Ocorrências Registadas
                 </h2>
 
-                {falhas.map((item, index) => (
+                {falhasFiltradas.map((item, index) => (
                   <div key={item.id} className="border border-gray-400 p-4 rounded-lg space-y-2 break-inside-avoid bg-white">
                     <div className="flex justify-between items-center font-bold border-b border-gray-300 pb-1 text-sm">
                       <span>#{index + 1} - Equipamento: {item.equipamento}</span>
