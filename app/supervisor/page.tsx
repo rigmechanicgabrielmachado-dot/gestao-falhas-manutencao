@@ -512,6 +512,19 @@ Ocorrências aguardando aprovação para publicação
 
 <Link
 
+href="/supervisor/dashboard"
+
+className="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 cursor-pointer"
+
+>
+
+📊 Dashboard
+
+</Link>
+
+
+<Link
+
 href="/supervisor/relatorio"
 
 className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 cursor-pointer"
