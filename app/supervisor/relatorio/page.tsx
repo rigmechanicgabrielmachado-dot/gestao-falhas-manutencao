@@ -15,6 +15,7 @@ interface Falha {
   part_number?: string;
   criado_em: string;
   aprovado: boolean;
+  tipo_parada?: 'nao_programada' | 'programada' | 'sem_parada';
   falha_em?: string;
   retorno_em?: string;
 }
@@ -64,7 +65,7 @@ export default function RelatorioPDF() {
   };
 
   const totalGeral = falhas.length || 1;
-  const falhasComDowntime = falhas.filter(item => item.falha_em && item.retorno_em);
+  const falhasComDowntime = falhas.filter(item => item.tipo_parada === 'nao_programada' && item.falha_em && item.retorno_em);
   const downtimeTotalMin = falhasComDowntime.reduce((total, item) => total + Math.max(0, Math.round((new Date(item.retorno_em!).getTime() - new Date(item.falha_em!).getTime()) / 60000)), 0);
   const mttrMin = falhasComDowntime.length ? Math.round(downtimeTotalMin / falhasComDowntime.length) : 0;
   const formatarDuracao = (minutos: number) => { const h = Math.floor(minutos / 60); const m = minutos % 60; return h > 0 ? `${h}h ${m}min` : `${m}min`; };
@@ -283,9 +284,10 @@ export default function RelatorioPDF() {
                       <p><strong>Sintoma:</strong> {item.sintoma}</p>
                       <p><strong>Causa Raiz:</strong> {item.causa_raiz || 'Não informada'}</p>
                       <p><strong>Solução Aplicada:</strong> {item.solucao}</p>
-                      {item.falha_em && <p><strong>Falha:</strong> {new Date(item.falha_em).toLocaleString('pt-BR')}</p>}
+                      {item.tipo_parada && <p><strong>Tipo de parada:</strong> {item.tipo_parada === 'nao_programada' ? 'Não programada' : item.tipo_parada === 'programada' ? 'Programada' : 'Sem parada'}</p>}
+                      {item.falha_em && <p><strong>{item.tipo_parada === 'programada' ? 'Início da intervenção' : 'Falha'}:</strong> {new Date(item.falha_em).toLocaleString('pt-BR')}</p>}
                       {item.retorno_em && <p><strong>Retorno:</strong> {new Date(item.retorno_em).toLocaleString('pt-BR')}</p>}
-                      {item.falha_em && item.retorno_em && <p><strong>Downtime:</strong> {formatarDuracao(Math.max(0, Math.round((new Date(item.retorno_em).getTime() - new Date(item.falha_em).getTime()) / 60000)))}</p>}
+                      {item.tipo_parada === 'nao_programada' && item.falha_em && item.retorno_em && <p><strong>Downtime:</strong> {formatarDuracao(Math.max(0, Math.round((new Date(item.retorno_em).getTime() - new Date(item.falha_em).getTime()) / 60000)))}</p>}
                       {item.part_number && (
                         <p><strong>Part Number / Material:</strong> <span className="font-mono">{item.part_number}</span></p>
                       )}
